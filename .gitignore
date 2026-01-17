@@ -1,0 +1,53 @@
+# ============================================
+# Global Claude Agents - .gitignore
+# ============================================
+# This file excludes sensitive, user-specific,
+# and transient data from the shared repo.
+# ============================================
+
+# ----- Sensitive / User-Specific Data -----
+history.jsonl
+projects/
+stats-cache.json
+
+# ----- Cache & Transient Data -----
+cache/
+debug/
+file-history/
+ide/
+paste-cache/
+session-env/
+shell-snapshots/
+statsig/
+telemetry/
+todos/
+plans/
+
+# ----- Plugins (separate git repos) -----
+# Plugins are managed separately via marketplaces
+plugins/
+
+# ----- Archives & Backups -----
+# Don't track old zip archives or backup directories
+*.zip
+backups/
+
+# ----- OS Generated Files -----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# ----- Editor Files -----
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# ----- Local overrides -----
+# Users can create *.local.* files that won't be tracked
+*.local.*
+*.local
