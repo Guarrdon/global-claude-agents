@@ -56,9 +56,16 @@ Optional archive of additional specialized agents organized by category:
 
 | File | Purpose |
 |------|---------|
-| `CLAUDE.md` | Global instructions loaded for all conversations |
+| `CLAUDE.agents.md` | **Agent system instructions** - model tiers, invocation patterns, workflows |
+| `CLAUDE.md` | Global instructions template - references agents file + your personal instructions |
 | `settings.json` | Claude Code settings (status line, etc.) |
 | `statusline.sh` | Custom status line showing model, directory, cost |
+
+**How it works:**
+1. Claude loads `CLAUDE.md` automatically
+2. `CLAUDE.md` contains a reference to `CLAUDE.agents.md`
+3. Claude reads and follows the comprehensive agent system instructions
+4. You add your personal instructions to `CLAUDE.md` without modifying the agent system
 
 ### Documentation
 
@@ -133,7 +140,8 @@ The installer will offer to merge new files while preserving your existing confi
 ├── README.md                         # This file
 ├── install.sh                        # Installation/merge script
 ├── .gitignore                        # Excludes sensitive data
-├── CLAUDE.md                         # Global instructions
+├── CLAUDE.agents.md                  # Agent system instructions (comprehensive)
+├── CLAUDE.md                         # Global instructions template
 ├── settings.json                     # Claude Code settings
 ├── statusline.sh                     # Status line script
 ├── AGENT_SELECTION_GUIDE.md          # Agent selection guide
