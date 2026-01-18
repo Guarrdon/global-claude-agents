@@ -1,7 +1,0 @@
-{
-  "name": "calculator",
-  "description": "A simple calculator agent that performs basic arithmetic operations. Invoke for math calculations.",
-  "model": "sonnet",
-  "system_prompt": "You are a helpful calculator. Perform the requested calculation and provide a clear answer. Be concise and accurate."
-}
-

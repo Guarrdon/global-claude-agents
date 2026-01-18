@@ -1,270 +1,162 @@
-# Global Claude Agents System
+# Claude Agents System
 
-This file defines the agent system for Claude Code. It is automatically loaded and provides instructions for agent invocation, model selection, and workflow patterns.
-
----
-
-## Agent System Overview
-
-This system uses a **hierarchical agent architecture**:
-
-```
-User Request
-    ↓
-global-manager (entry point)
-    ↓
-domain-manager (dev, project, discovery, environment)
-    ↓
-worker (code-writer, debugger, explorer, etc.)
-```
-
-**Core Principles:**
-1. **Managers orchestrate, workers execute** - Managers never write code directly
-2. **Two-level hierarchy** - global-manager → domain-manager → worker
-3. **Model tiering** - Use the right model for the task complexity
+Command-driven workflow architecture for Claude Code.
 
 ---
 
-## Model Tiering (CRITICAL)
+## Architecture
 
-When spawning agents via the Task tool, you **MUST** use the correct model:
+```
+User → /command → Claude reads command → Spawns workers via Task tool
+```
 
-| Model | Cost | Use For | Agents |
-|-------|------|---------|--------|
-| **opus** | $$$ | Deep analysis, complex debugging, security review | code-reviewer, debugger |
-| **sonnet** | $$ | Standard development, coordination | All managers, most workers |
-| **haiku** | $ | Fast exploration, simple operations | explorer, git-manager |
-
-### How to Determine the Model
-
-1. **Read the agent file** before spawning (if unsure)
-2. **Parse the YAML frontmatter** at the top (between `---` markers)
-3. **Extract the `model` field** value
-4. **Pass that value** to the Task tool's `model` parameter
-
-### Worker-to-Model Quick Reference
-
-**Opus (expensive, critical analysis):**
-- `code-reviewer` - Code quality, security review
-- `debugger` - Complex bug diagnosis
-
-**Sonnet (standard, most work):**
-- All managers (`global-manager`, `dev-manager`, `project-manager`, etc.)
-- `code-writer`, `test-automator`, `refactorer`
-- `infra-engineer`, `cloud-engineer`, `deploy-engineer`, `db-engineer`
-- `researcher`, `doc-writer`, `analyst`, `product-analyst`
-- All language specialists
-
-**Haiku (fast, simple tasks):**
-- `explorer` - Codebase exploration (maps to `Explore` subagent_type)
-- `git-manager` - Git operations
+- Slash commands inject workflow instructions into Claude's context
+- Claude orchestrates and spawns appropriate workers
+- Workers appear as **visible colored subprocesses**
+- Workers cannot spawn other workers (Claude Code limitation)
 
 ---
 
-## Agent Invocation Pattern
+## Worker Agents
 
-When spawning agents via the Task tool:
+### Development (sonnet)
+| Worker | Purpose | subagent_type |
+|--------|---------|---------------|
+| code-writer | Implementation | `code-writer` |
+| test-automator | Write/run tests | `test-automator` |
+| refactorer | Code improvement | `refactorer` |
 
-```
-Task tool with:
-  - subagent_type: "general-purpose" (or "Explore" for explorer)
-  - model: "<model from agent's frontmatter>"
-  - description: "<agent-name>: <brief task>"
-  - prompt: [detailed instructions]
-```
+### Review & Debug (opus)
+| Worker | Purpose | subagent_type |
+|--------|---------|---------------|
+| code-reviewer | Quality review | `code-reviewer` |
+| debugger | Root cause analysis | `debugger` |
 
-### Agent Name Display (IMPORTANT)
+### Exploration & Git (haiku)
+| Worker | Purpose | subagent_type |
+|--------|---------|---------------|
+| explorer | Fast codebase search | `Explore` |
+| git-manager | Git operations | `git-manager` |
 
-**Always prefix the description with the agent name** so it shows in the terminal:
+### Infrastructure (sonnet)
+| Worker | Purpose | subagent_type |
+|--------|---------|---------------|
+| db-engineer | Database operations | `db-engineer` |
+| deploy-engineer | Deployment | `deploy-engineer` |
+| cloud-engineer | Cloud infrastructure | `cloud-engineer` |
+| infra-engineer | CI/CD, Docker | `infra-engineer` |
 
-```
-// Good - agent name visible
-description: "code-writer: implement login"
-description: "explorer: find auth files"
-description: "debugger: trace null error"
+### Analysis (sonnet)
+| Worker | Purpose | subagent_type |
+|--------|---------|---------------|
+| analyst | Requirements analysis | `analyst` |
+| product-analyst | Feature prioritization | `product-analyst` |
+| researcher | Technical research | `researcher` |
+| doc-writer | Documentation | `doc-writer` |
 
-// Bad - no agent context
-description: "implement login feature"
-description: "find authentication files"
-```
-
-**Format:** `"<agent-name>: <brief task>"`
-
----
-
-## Manager Inventory
-
-### Global Managers (`~/.claude/agents/managers/`)
-
-| Manager | Model | Purpose | Delegates To |
-|---------|-------|---------|--------------|
-| `global-manager` | sonnet | Entry point, routes all requests | All other managers |
-| `dev-manager` | sonnet | Code writing, review, debugging, testing | code-writer, code-reviewer, debugger, test-automator, refactorer |
-| `project-manager` | sonnet | Git, docs, task tracking | git-manager, doc-writer, analyst |
-| `discovery-manager` | sonnet | Codebase exploration, research | explorer, researcher |
-| `environment-manager` | sonnet | Infrastructure, deployment, databases | infra-engineer, cloud-engineer, deploy-engineer, db-engineer |
-
-### Project Managers (`<project>/.claude/agents/managers/`)
-
-| Manager | Model | Purpose | Delegates To |
-|---------|-------|---------|--------------|
-| `business-manager` | sonnet | Requirements, priorities, domain logic | analyst, product-analyst |
-| `technical-manager` | sonnet | Architecture, patterns, implementation | code-writer, code-reviewer, language specialists |
-| `deploy-manager` | sonnet | Project-specific deployment workflows | deploy-engineer, infra-engineer |
+### Specialized
+| Worker | Purpose | subagent_type |
+|--------|---------|---------------|
+| github-issue-resolver | Issue resolution | `github-issue-resolver` |
 
 ---
 
-## Worker Inventory
+## Spawning Patterns
 
-### Development Workers
+### Standard Worker
+```
+Task(
+  subagent_type: "<worker-type>",
+  model: "sonnet",
+  description: "<worker>: <brief task>",
+  prompt: "<details>"
+)
+```
 
-| Worker | Model | Purpose |
-|--------|-------|---------|
-| `code-writer` | sonnet | Write new code, implement features |
-| `code-reviewer` | **opus** | Review code for quality, security, patterns |
-| `debugger` | **opus** | Diagnose and fix bugs |
-| `test-automator` | sonnet | Write and run tests |
-| `refactorer` | sonnet | Improve code structure |
+### Explorer (haiku with Explore type)
+```
+Task(
+  subagent_type: "Explore",
+  model: "haiku",
+  description: "explorer: <brief task>",
+  prompt: "<what to find>"
+)
+```
 
-### Infrastructure Workers
-
-| Worker | Model | Purpose |
-|--------|-------|---------|
-| `infra-engineer` | sonnet | CI/CD, automation, infrastructure |
-| `cloud-engineer` | sonnet | Cloud architecture, IaC |
-| `deploy-engineer` | sonnet | Deployment pipelines, releases |
-| `db-engineer` | sonnet | Database design, queries, optimization |
-
-### Research Workers
-
-| Worker | Model | Purpose |
-|--------|-------|---------|
-| `explorer` | haiku | Fast codebase exploration |
-| `researcher` | sonnet | In-depth research, analysis |
-| `doc-writer` | sonnet | Documentation, guides, READMEs |
-
-### Project Workers
-
-| Worker | Model | Purpose |
-|--------|-------|---------|
-| `git-manager` | haiku | Git operations, branching, PRs |
-| `analyst` | sonnet | Requirements analysis |
-| `product-analyst` | sonnet | Feature prioritization, user stories |
-
-### Language Specialists (On-Demand)
-
-| Worker | Model | When to Use |
-|--------|-------|-------------|
-| `typescript-specialist` | sonnet | Deep TypeScript/JavaScript work |
-| `python-specialist` | sonnet | Python-specific implementation |
-| `sql-specialist` | sonnet | Complex SQL queries |
-| `react-specialist` | sonnet | React patterns, hooks |
-| `nextjs-specialist` | sonnet | Next.js specific features |
+### Review/Debug (opus)
+```
+Task(
+  subagent_type: "code-reviewer",  # or "debugger"
+  model: "opus",
+  description: "<worker>: <brief task>",
+  prompt: "<details>"
+)
+```
 
 ---
 
-## Routing Rules
+## Workflow Patterns
 
-When a user makes a request, route based on the request type:
+**Sequential** (most common):
+```
+code-writer → test-automator → code-reviewer
+```
 
-| Request Type | Route To |
-|--------------|----------|
-| Write code, fix bugs, review code, write tests | `dev-manager` |
-| Git operations, documentation, task tracking | `project-manager` |
-| Explore codebase, research questions, find files | `discovery-manager` |
-| Infrastructure, deployment, databases, CI/CD | `environment-manager` |
-| Business requirements, priorities, domain questions | `business-manager` (project) |
-| Architecture decisions, technical patterns | `technical-manager` (project) |
-| Project-specific deployment | `deploy-manager` (project) |
+**Parallel** (independent tasks):
+```
+explorer (find X) ─┬→ synthesize
+explorer (find Y) ─┘
+```
+
+**Conditional** (based on results):
+```
+debugger → simple? → code-writer
+         → complex? → report findings
+```
 
 ---
 
 ## Git Workflow (CRITICAL)
 
-**All code changes MUST go through Pull Requests.** This applies to ALL workers that modify code.
+**All code changes MUST go through Pull Requests.**
 
-### Required Workflow
+1. Create feature branch (never work on main/master)
+2. Commit changes
+3. Create PR via `gh pr create`
+4. Merge via PR (not direct push)
 
-1. **Create feature branch** - Never work on main/master directly
-2. **Commit changes** to the feature branch
-3. **Create PR** via `gh pr create`
-4. **Merge via PR** - Not direct push to master
+### Branch Prefixes
+| Type | Prefix |
+|------|--------|
+| Feature | `feature/` |
+| Bug fix | `fix/` |
+| Docs | `docs/` |
 
-### Why This Matters
-
-- Direct pushes to master trigger CI/CD deployment immediately
-- PRs allow for review and controlled merges
-- This applies to ALL changes, even "simple" fixes
-
-### Branch Naming Convention
-
-| Work Type | Prefix | Example |
-|-----------|--------|---------|
-| New feature | `feature/` | `feature/add-dark-mode` |
-| Bug fix | `fix/` | `fix/login-validation-error` |
-| Documentation | `docs/` | `docs/api-endpoints` |
-| Refactoring | `refactor/` | `refactor/auth-module` |
-| Testing | `test/` | `test/unit-coverage` |
-
-### Only Exception
-
-Direct master commits only allowed when user explicitly requests a "critical hotfix" for production emergencies.
+**Always check project CLAUDE.md** for custom git workflows.
 
 ---
 
-## Project-Specific Overrides
+## File Structure
 
-**IMPORTANT:** Always check for project-specific configuration:
-
-1. Project's `CLAUDE.md` file (root of repo)
-2. Project's `.claude/agents/` directory
-
-Project configurations may include:
-- Custom agents and workflows
-- Worktree-based development
-- Custom scripts (e.g., `scripts/git-workflow.sh`)
-- Specific branch protection rules
-
-**When a project has local rules, those take precedence over these global defaults.**
-
----
-
-## Example Invocations
-
-### Spawning code-reviewer (opus):
 ```
-Task tool with:
-  - subagent_type: "general-purpose"
-  - model: "opus"
-  - description: "code-reviewer: review auth changes"
-  - prompt: "Review the authentication changes in src/auth/..."
-```
-
-### Spawning explorer (haiku):
-```
-Task tool with:
-  - subagent_type: "Explore"
-  - model: "haiku"
-  - description: "explorer: find API endpoints"
-  - prompt: "Find all API endpoint definitions in the codebase"
-```
-
-### Spawning dev-manager (sonnet):
-```
-Task tool with:
-  - subagent_type: "general-purpose"
-  - model: "sonnet"
-  - description: "dev-manager: implement login feature"
-  - prompt: "Coordinate implementation of login feature..."
+~/.claude/
+├── CLAUDE.md           # Global instructions (quick reference)
+├── CLAUDE.agents.md    # This file (technical details)
+├── commands/           # Slash command definitions
+│   ├── dev.md, review.md, debug.md, test.md
+│   ├── explore.md, git.md, docs.md
+│   └── deploy.md, infra.md, issue.md, analyze.md
+└── agents/             # Worker agent definitions
+    └── [worker].md     # Individual worker configs
 ```
 
 ---
 
-## Critical Rules Summary
+## Critical Rules
 
-1. **Never default to a single model** - Always check the agent's specification
-2. **Cost matters** - Opus is expensive, only use where specified
-3. **Speed matters** - Haiku is fast, use for exploration and simple git ops
-4. **Read before spawn** - If unsure, read the agent file to check its model field
-5. **Always use PRs** - Never push directly to main/master
-6. **Project rules override global** - Check for project-specific configuration
+1. **Use slash commands** to start workflows
+2. **Spawn visible agents** using Task tool with correct subagent_type
+3. **Use correct models** - opus for review/debug, haiku for explore/git, sonnet for rest
+4. **Read project CLAUDE.md** - project rules override global defaults
+5. **Use PRs** - never push directly to main/master
+6. **Sequential spawning** - wait for each worker to complete before spawning next
