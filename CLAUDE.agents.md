@@ -54,6 +54,14 @@ User → /command → Claude reads command → Spawns workers via Task tool
 | researcher | Technical research | `researcher` |
 | doc-writer | Documentation | `doc-writer` |
 
+### Audit (sonnet/opus)
+| Worker | Purpose | subagent_type | Model |
+|--------|---------|---------------|-------|
+| functional-auditor | Spec compliance audit | `analyst` | sonnet |
+| ux-auditor | User experience audit | `code-reviewer` | opus |
+
+*Note: Auditors use compatible built-in types. Read their .md files for full instructions.*
+
 ### Specialized
 | Worker | Purpose | subagent_type |
 |--------|---------|---------------|
@@ -93,6 +101,24 @@ Task(
 )
 ```
 
+### Audit Workers
+Read ~/.claude/agents/functional-auditor.md or ux-auditor.md first for full instructions.
+```
+Task(
+  subagent_type: "analyst",  # Uses analyst tools
+  model: "sonnet",
+  description: "functional-auditor: audit [feature]",
+  prompt: "You are a functional-auditor. Read ~/.claude/agents/functional-auditor.md..."
+)
+
+Task(
+  subagent_type: "code-reviewer",  # For deep/UX audits, uses code-reviewer tools
+  model: "opus",
+  description: "ux-auditor: deep audit [feature]",
+  prompt: "You are a ux-auditor. Read ~/.claude/agents/ux-auditor.md..."
+)
+```
+
 ---
 
 ## Workflow Patterns
@@ -112,6 +138,12 @@ explorer (find Y) ─┘
 ```
 debugger → simple? → code-writer
          → complex? → report findings
+```
+
+**Audit workflow** (multi-phase):
+```
+Standard:  functional-auditor → doc-writer → git-manager
+Deep/UX:   ux-auditor → functional-auditor → doc-writer → git-manager
 ```
 
 ---
@@ -144,8 +176,9 @@ debugger → simple? → code-writer
 ├── CLAUDE.agents.md    # This file (technical details)
 ├── commands/           # Slash command definitions
 │   ├── dev.md, review.md, debug.md, test.md
-│   ├── explore.md, git.md, docs.md
-│   └── deploy.md, infra.md, issue.md, analyze.md
+│   ├── explore.md, git.md, docs.md, audit.md
+│   ├── deploy.md, infra.md, issue.md, analyze.md
+│   └── commands.md     # Lists all available commands
 └── agents/             # Worker agent definitions
     └── [worker].md     # Individual worker configs
 ```

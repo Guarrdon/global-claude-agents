@@ -19,13 +19,15 @@ Use these commands to trigger specialized workflows. Each spawns worker agents w
 | `/infra` | Infrastructure (DB, CI/CD, cloud) | db-engineer, cloud-engineer, infra-engineer |
 | `/issue` | GitHub issue resolution | github-issue-resolver |
 | `/analyze` | Business/technical analysis | analyst, product-analyst, researcher |
+| `/audit` | Feature audit (functional + optional UX) | functional-auditor, ux-auditor (opus), doc-writer, git-manager |
+| `/commands` | List all commands and agents | (none - displays info) |
 
 ### Model Usage
 
 | Model | Cost | Use For |
 |-------|------|---------|
-| **opus** | $$$ | Deep analysis: /review, /debug |
-| **sonnet** | $$ | Development: /dev, /test, /docs, /deploy, /infra, /issue, /analyze |
+| **opus** | $$$ | Deep analysis: /review, /debug, /audit (UX only) |
+| **sonnet** | $$ | Development: /dev, /test, /docs, /deploy, /infra, /issue, /analyze, /audit |
 | **haiku** | $ | Fast tasks: /explore, /git |
 
 ### Key Rules

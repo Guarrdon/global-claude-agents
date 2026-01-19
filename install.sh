@@ -48,7 +48,7 @@ BACKUP_PATH="$BACKUP_DIR/backup_$TIMESTAMP"
 echo -e "\n${BLUE}Creating backup...${NC}"
 mkdir -p "$BACKUP_PATH"
 
-BACKUP_ITEMS=("CLAUDE.md" "CLAUDE.agents.md" "settings.json" "statusline.sh" "agents" "agents-bk")
+BACKUP_ITEMS=("CLAUDE.md" "CLAUDE.agents.md" "settings.json" "statusline.sh" "agents" "agents-bk" "commands")
 BACKED_UP=0
 for item in "${BACKUP_ITEMS[@]}"; do
     [ -e "$TARGET_DIR/$item" ] && cp -r "$TARGET_DIR/$item" "$BACKUP_PATH/" && BACKED_UP=$((BACKED_UP + 1))
@@ -119,6 +119,23 @@ if [ -d "$SCRIPT_DIR/agents" ]; then
         esac
     else
         cp -r "$SCRIPT_DIR/agents" "$TARGET_DIR/agents"; echo -e "  ${GREEN}+${NC} agents/ (installed)"
+    fi
+fi
+
+# Commands directory
+echo -e "\n${BLUE}Commands:${NC}"
+if [ -d "$SCRIPT_DIR/commands" ]; then
+    if [ -d "$TARGET_DIR/commands" ]; then
+        echo -e "  ${YELLOW}?${NC} commands/ exists. [m]erge, [r]eplace, [s]kip"
+        read -p "    > " CA
+        case "$CA" in
+            m|M) cp -rn "$SCRIPT_DIR/commands/"* "$TARGET_DIR/commands/" 2>/dev/null || true
+                 echo -e "    ${GREEN}Merged${NC}";;
+            r|R) rm -rf "$TARGET_DIR/commands"; cp -r "$SCRIPT_DIR/commands" "$TARGET_DIR/commands"; echo -e "    ${GREEN}Replaced${NC}";;
+            *) echo -e "    ${YELLOW}Skipped${NC}";;
+        esac
+    else
+        cp -r "$SCRIPT_DIR/commands" "$TARGET_DIR/commands"; echo -e "  ${GREEN}+${NC} commands/ (installed)"
     fi
 fi
 
