@@ -93,6 +93,56 @@ EOF
 )"
 ```
 
+**If PR fixes an issue**, include `Fixes #<number>` in the body to auto-close on merge.
+
+## Project Board Updates
+
+If the project CLAUDE.md contains `github_project` configuration, you can update issue status:
+
+### Setting "In Progress"
+```bash
+# 1. Get item ID for the issue
+ITEM_ID=$(gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json | \
+  jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id')
+
+# 2. Update status (use IDs from project CLAUDE.md)
+gh project item-edit \
+  --project-id <PROJECT_ID> \
+  --id $ITEM_ID \
+  --field-id <STATUS_FIELD_ID> \
+  --single-select-option-id <IN_PROGRESS_OPTION_ID>
+```
+
+### Setting "Done"
+```bash
+gh project item-edit \
+  --project-id <PROJECT_ID> \
+  --id $ITEM_ID \
+  --field-id <STATUS_FIELD_ID> \
+  --single-select-option-id <DONE_OPTION_ID>
+```
+
+**If no board config exists:** Skip board updates, but note this in your output.
+
+## Worktree Workflow Details
+
+When a project uses `scripts/git-workflow.sh`:
+
+1. **Worktrees are separate directories** - each branch gets its own folder
+2. **Working directory changes** when switching - ALWAYS inform the user
+3. **WIP is auto-committed** before switching - prevents losing work
+4. **Main repo stays on master** - never work directly in main repo
+
+```bash
+# Typical workflow
+scripts/git-workflow.sh status                    # Where am I?
+scripts/git-workflow.sh switch fix/issue-123     # Creates worktree, cd's to it
+# ... do work ...
+git add -A && git commit -m "fix: description"
+git push -u origin fix/issue-123
+gh pr create ...
+```
+
 ## NEVER Do
 
 - **Push directly to main/master** - CRITICAL violation

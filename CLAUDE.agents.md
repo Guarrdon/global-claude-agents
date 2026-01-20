@@ -146,6 +146,73 @@ Standard:  functional-auditor → doc-writer → git-manager
 Deep/UX:   ux-auditor → functional-auditor → doc-writer → git-manager
 ```
 
+**Issue Resolution workflow** (`/issue`):
+```
+1. Detect   → Read project CLAUDE.md for board/worktree config
+2. Track    → Set issue to "In Progress" on project board
+3. Branch   → Create worktree (or git branch if no worktree script)
+4. Fix      → debugger → code-writer → test-automator
+5. PR       → Create PR with "Fixes #<number>"
+6. Complete → Update board to "Done" (after merge)
+```
+
+---
+
+## Project Board Integration
+
+Projects can define GitHub Project Board configuration in their CLAUDE.md:
+
+```yaml
+github_project:
+  owner: <github-username-or-org>
+  number: <project-number>
+  project_id: <PROJECT_ID>
+
+  fields:
+    status:
+      id: <STATUS_FIELD_ID>
+      options:
+        todo: <OPTION_ID>
+        in_progress: <OPTION_ID>
+        done: <OPTION_ID>
+```
+
+**Commands for board updates:**
+```bash
+# Get item ID for an issue
+gh project item-list <NUMBER> --owner <OWNER> --format json | \
+  jq -r '.items[] | select(.content.number == <ISSUE>) | .id'
+
+# Update status
+gh project item-edit --project-id <PROJECT_ID> --id <ITEM_ID> \
+  --field-id <STATUS_FIELD_ID> --single-select-option-id <OPTION_ID>
+```
+
+If no board config exists, workflows skip board updates and warn the user.
+
+---
+
+## Worktree Integration
+
+Projects can use git worktrees for isolated feature work. Check for:
+
+1. **Worktree script**: `scripts/git-workflow.sh`
+2. **Worktree config** in project CLAUDE.md
+
+**If worktree script exists:**
+```bash
+scripts/git-workflow.sh status          # Check current state
+scripts/git-workflow.sh switch <branch> # Create/switch worktree
+scripts/git-workflow.sh commit-wip      # Save WIP before switching
+```
+
+**Key behavior:**
+- Working directory CHANGES when switching worktrees
+- Always inform user of directory changes
+- Auto-commit WIP before switching contexts
+
+If no worktree script, fall back to standard `git checkout -b`.
+
 ---
 
 ## Git Workflow (CRITICAL)

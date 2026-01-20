@@ -17,7 +17,7 @@ Use these commands to trigger specialized workflows. Each spawns worker agents w
 | `/docs` | Documentation | doc-writer |
 | `/deploy` | Deployment | deploy-engineer |
 | `/infra` | Infrastructure (DB, CI/CD, cloud) | db-engineer, cloud-engineer, infra-engineer |
-| `/issue` | GitHub issue resolution | github-issue-resolver |
+| `/issue` | GitHub issue resolution (board + worktree + fix + PR) | debugger, code-writer, test-automator, git-manager |
 | `/analyze` | Business/technical analysis | analyst, product-analyst, researcher |
 | `/audit` | Feature audit (functional + optional UX) | functional-auditor, ux-auditor (opus), doc-writer, git-manager |
 | `/commands` | List all commands and agents | (none - displays info) |
@@ -35,6 +35,15 @@ Use these commands to trigger specialized workflows. Each spawns worker agents w
 1. **Use slash commands** to start workflows
 2. **All code changes** must go through Pull Requests (never push to main/master)
 3. **Check project CLAUDE.md** for project-specific rules that override these
+
+### Project Integration (auto-detected from project CLAUDE.md)
+
+| Feature | Config Key | Used By |
+|---------|------------|---------|
+| GitHub Project Board | `github_project` | `/issue` sets In Progress/Done |
+| Git Worktrees | `scripts/git-workflow.sh` | `/issue`, `/git` use worktrees |
+
+These features are optional - workflows adapt when config is missing.
 
 ### Technical Details
 

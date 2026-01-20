@@ -83,7 +83,14 @@ Print the following information directly to the user (do NOT spawn any agents):
 │  ──────────────────────────────────  │
 │  Command: /issue                     │
 │  Purpose: GitHub issue resolution    │
-│  Workers: github-issue-resolver      │
+│           (board + worktree + PR)    │
+│  Workers: debugger (opus),           │
+│           code-writer, test-automator│
+│           git-manager                │
+│  Usage:                              │
+│    /issue       - Next priority issue│
+│    /issue #123  - Specific issue     │
+│    /issue done #123 - Mark complete  │
 │                                      │
 └──────────────────────────────────────┘
 
