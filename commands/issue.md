@@ -15,11 +15,35 @@ $ARGUMENTS
 ```
 1. SETUP     -> Detect project config, select/validate issue
 2. TRACK     -> Set issue to "In Progress" on project board
+   ├── BLOCKING: Must succeed before proceeding
+   └── VERIFY: Confirm status update before continuing
 3. BRANCH    -> Create/switch to worktree or feature branch
 4. IMPLEMENT -> Spawn dev workers for the fix
 5. PR        -> Create pull request with issue reference
 6. COMPLETE  -> Update board to "Done" (after PR merged)
 ```
+
+**CRITICAL WORKFLOW GATE:** Phase 2 (TRACK) is a **blocking checkpoint**. You MUST NOT proceed to Phase 3 (BRANCH) or any subsequent phase until the issue has been successfully marked "In Progress" on the project board. This prevents duplicate work by signaling to other team members that the issue is being actively worked on.
+
+## Required: Track Progress with TodoWrite
+
+**At the start of this workflow, create a todo list to track each phase:**
+
+```
+TodoWrite([
+  { content: "Detect project config", status: "pending", activeForm: "Detecting project config" },
+  { content: "Select/validate issue", status: "pending", activeForm: "Selecting issue" },
+  { content: "Set issue to In Progress on board", status: "pending", activeForm: "Setting issue to In Progress" },
+  { content: "CHECKPOINT: Verify In Progress succeeded", status: "pending", activeForm: "Verifying In Progress status" },
+  { content: "Create worktree/branch", status: "pending", activeForm: "Creating worktree/branch" },
+  { content: "Diagnose issue (debugger)", status: "pending", activeForm: "Diagnosing issue" },
+  { content: "Implement fix (code-writer)", status: "pending", activeForm: "Implementing fix" },
+  { content: "Add regression test (test-automator)", status: "pending", activeForm: "Adding regression test" },
+  { content: "Create pull request", status: "pending", activeForm: "Creating pull request" }
+])
+```
+
+Mark each todo as `in_progress` when starting and `completed` when done. **The CHECKPOINT todo enforces the blocking gate.**
 
 ## Phase 1: Project Detection
 
@@ -62,9 +86,9 @@ If issue number provided (e.g., `/issue #123` or `/issue 123`):
 gh issue view <NUMBER> --json number,title,body,labels
 ```
 
-## Phase 3: Set "In Progress" on Project Board
+## Phase 3: Set "In Progress" on Project Board (BLOCKING GATE)
 
-**CRITICAL: This must happen BEFORE any code work.**
+**CRITICAL: This phase is a BLOCKING GATE. No code work may begin until this completes successfully.**
 
 If project board config exists in CLAUDE.md:
 
@@ -73,7 +97,14 @@ If project board config exists in CLAUDE.md:
 ITEM_ID=$(gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json | \
   jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id')
 
-# 2. Update status to "In Progress"
+# 2. Verify we found the item
+if [ -z "$ITEM_ID" ]; then
+  echo "ERROR: Could not find issue #<NUMBER> on project board"
+  echo "BLOCKING: Cannot proceed until issue is on the board"
+  exit 1
+fi
+
+# 3. Update status to "In Progress"
 gh project item-edit \
   --project-id <PROJECT_ID> \
   --id $ITEM_ID \
@@ -83,7 +114,40 @@ gh project item-edit \
 echo "Issue #<NUMBER> marked as In Progress on project board"
 ```
 
-**If no project board config:** Skip this step, inform user: "No project board config found in CLAUDE.md - skipping board status update"
+### Error Handling (REQUIRED)
+
+If the board update fails:
+1. **DO NOT proceed** to Phase 4 or any subsequent phase
+2. **Report the error** to the user with the specific failure message
+3. **Ask the user** how to proceed:
+   - Retry the board update
+   - Manually update the board and confirm
+   - Skip board tracking (user accepts risk of duplicate work)
+
+**If no project board config:**
+- Inform user: "No project board config found in CLAUDE.md - skipping board status update"
+- **Ask user to confirm** they want to proceed without board tracking
+- Only continue after user explicitly confirms
+
+## Phase 3.5: CHECKPOINT - Verify "In Progress" Status
+
+**This checkpoint is MANDATORY. Do not skip.**
+
+Before proceeding to Phase 4, verify the status was set:
+
+```bash
+# Verify the status update took effect
+CURRENT_STATUS=$(gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json | \
+  jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .status')
+
+echo "Issue #<NUMBER> current status: $CURRENT_STATUS"
+
+# Confirm it shows "In Progress" (or your configured status name)
+```
+
+**Only after verification succeeds:**
+- Mark the "CHECKPOINT: Verify In Progress succeeded" todo as completed
+- Proceed to Phase 4
 
 ## Phase 4: Create Worktree/Branch
 
@@ -259,7 +323,8 @@ Before reporting completion, verify:
 
 - [ ] Project config detected (board IDs, worktree script)
 - [ ] Issue selected and details fetched
-- [ ] Board status set to "In Progress" (if config exists)
+- [ ] **GATE: Board status set to "In Progress"** (or user confirmed to skip)
+- [ ] **GATE: Checkpoint verification completed** (status confirmed)
 - [ ] Worktree/branch created for the fix
 - [ ] Root cause identified and documented
 - [ ] Fix implemented (minimal scope)
@@ -280,7 +345,9 @@ The workflow adapts to available project tooling:
 
 ## Anti-Patterns to AVOID
 
-- Starting code work BEFORE setting "In Progress"
+- **Starting code work BEFORE setting "In Progress"** - This is the #1 violation. The TRACK phase is a BLOCKING GATE.
+- **Skipping the checkpoint verification** - Always verify the status update succeeded before continuing
+- **Proceeding after board update failure** without explicit user confirmation
 - Working directly on main/master branch
 - Fixing multiple issues in one PR
 - Skipping the regression test
