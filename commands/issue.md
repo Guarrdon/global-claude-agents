@@ -21,7 +21,7 @@ $ARGUMENTS
 3. WORKTREE  -> Create isolated worktree for issue branch
 4. IMPLEMENT -> Spawn dev workers for the fix
 5. PR        -> Create pull request with issue reference
-6. DONE      -> Report PR URL and STOP (GitHub auto-closes on merge)
+6. COMPLETE  -> Update board to "Done" (after PR merged)
 ```
 
 **CRITICAL WORKFLOW GATES:**
@@ -36,6 +36,8 @@ $ARGUMENTS
 TodoWrite([
   { content: "Validate git worktree context", status: "pending", activeForm: "Validating worktree context" },
   { content: "Detect project config", status: "pending", activeForm: "Detecting project config" },
+  { content: "DISCOVERY: Load worker context & explore codebase", status: "pending", activeForm: "Exploring codebase for context" },
+  { content: "DISCOVERY: Document findings before implementation", status: "pending", activeForm: "Documenting discovery findings" },
   { content: "Select/validate issue", status: "pending", activeForm: "Selecting issue" },
   { content: "Set issue to In Progress on board", status: "pending", activeForm: "Setting issue to In Progress" },
   { content: "CHECKPOINT: Verify In Progress succeeded", status: "pending", activeForm: "Verifying In Progress status" },
@@ -89,6 +91,83 @@ ls scripts/git-workflow.sh 2>/dev/null
 ```
 
 **Store detected config for use throughout workflow.**
+
+## Phase 1.5: Discovery (MANDATORY before implementation)
+
+**This phase ensures workers have sufficient context before writing code.**
+
+### Step 1: Load Worker Context
+```bash
+# Read the condensed worker context summary
+cat WORKER_CONTEXT.md 2>/dev/null
+```
+
+If WORKER_CONTEXT.md exists, extract and understand:
+- CI/CD process (how deployments work, what triggers them)
+- Critical constraints (database, patterns, no-go areas)
+- Key file locations for the type of change being made
+
+### Step 2: Explore Related Code
+
+Spawn an explorer to understand the codebase area affected by this issue:
+
+```
+Task(
+  subagent_type: "Explore",
+  model: "haiku",
+  description: "explorer: find code related to issue #<NUMBER>",
+  prompt: """
+    Explore the codebase to find code related to this issue:
+
+    Issue: <TITLE>
+    Description: <BODY>
+
+    Find and report:
+    1. Files that will likely need modification
+    2. Related files that might be affected
+    3. Existing patterns in those files to follow
+    4. Database tables involved (if any)
+    5. API endpoints affected (if any)
+    6. Potential breaking change risks
+
+    Be thorough - this context will guide the implementation.
+  """
+)
+```
+
+### Step 3: Understand CI/CD Implications
+
+Based on the issue and exploration, verify:
+- [ ] Changes won't break the build (`npm run build`)
+- [ ] Changes won't break type checking (`npm run typecheck`)
+- [ ] API changes won't break health checks (`/api/healthz`)
+- [ ] Database changes have migration strategy (if needed)
+
+### Step 4: Document Discovery Summary
+
+Before proceeding to Phase 2, document:
+```
+## Discovery Summary for Issue #<NUMBER>
+
+### Files to Modify
+- <file>:<line> - <what to change>
+
+### Related Files (check for impact)
+- <file> - <why it might be affected>
+
+### Patterns to Follow
+- <pattern observed in codebase>
+
+### CI/CD Considerations
+- Build impact: <none/low/high>
+- Database changes: <yes/no - migration needed?>
+- API changes: <yes/no - backwards compatible?>
+
+### Risks Identified
+- <potential risk and mitigation>
+```
+
+**ONLY AFTER discovery is complete → proceed to Phase 2 (Issue Selection)**
 
 ## Phase 2: Issue Selection
 
@@ -357,13 +436,23 @@ EOF
 
 **Report PR URL to user.**
 
-## WORKFLOW COMPLETE - STOP
+## Phase 7: Update Board to "Done"
 
-After reporting the PR URL:
-1. **Your work is done** - Do not continue
-2. **Do not poll or wait** for PR merge status
-3. The PR uses `Fixes #<NUMBER>` syntax, so GitHub will auto-close the issue when merged
-4. **Report completion summary and stop immediately**
+The board is typically updated to "Done" after the PR is merged.
+
+**Option A: Automatic** - If using `Fixes #<NUMBER>` in PR, GitHub auto-closes the issue on merge.
+
+**Option B: Manual** - User runs `/issue done #123` after merge:
+
+```bash
+gh project item-edit \
+  --project-id <PROJECT_ID> \
+  --id <ITEM_ID> \
+  --field-id <STATUS_FIELD_ID> \
+  --single-select-option-id <DONE_OPTION_ID>
+
+echo "Issue #<NUMBER> marked as Done on project board"
+```
 
 ## Commands Reference
 
@@ -372,6 +461,7 @@ After reporting the PR URL:
 | `/issue` | Pick highest priority open issue and resolve it |
 | `/issue #123` | Resolve specific issue number 123 |
 | `/issue 123` | Same as above (# is optional) |
+| `/issue done #123` | Mark issue as Done on board (run after PR merge) |
 | `/issue status` | Show current git/worktree status |
 
 ## Execution Checklist

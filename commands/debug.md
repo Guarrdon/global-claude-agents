@@ -12,6 +12,72 @@ $ARGUMENTS
 
 ## Workflow
 
+### Phase 0: Discovery (MANDATORY before diagnosis)
+
+**Before spawning the debugger, gather project context.**
+
+#### Step 1: Load Project Context
+
+```bash
+# Read condensed worker context (if exists)
+cat WORKER_CONTEXT.md 2>/dev/null
+
+# Or fall back to CLAUDE.md
+cat CLAUDE.md 2>/dev/null | head -150
+```
+
+Extract and understand:
+- **CI/CD process** - What happens when the fix merges?
+- **Database patterns** - How are queries structured?
+- **Architecture** - Server Components vs Client Components
+- **Testing strategy** - Smoke validation vs comprehensive tests
+
+#### Step 2: Quick Exploration
+
+Spawn an explorer to understand the bug's context:
+
+```
+Task(
+  subagent_type: "Explore",
+  model: "haiku",
+  description: "explorer: find code related to <bug area>",
+  prompt: """
+    Quickly explore the codebase to understand this bug's context:
+
+    Bug: <BUG_DESCRIPTION>
+
+    Find:
+    1. Files most likely involved in this bug
+    2. Recent changes to those files (git log)
+    3. Related error handling patterns
+    4. Database queries in the affected area
+    5. API endpoints involved
+
+    Return a focused list for the debugger to investigate.
+  """
+)
+```
+
+#### Step 3: Document Pre-Debug Context
+
+```
+## Pre-Debug Context
+
+### Bug Area
+- Primary files: <list>
+- Related subsystems: <list>
+
+### Project Patterns
+- Database access: <pattern used>
+- Error handling: <pattern used>
+- Relevant constraints: <from WORKER_CONTEXT.md>
+
+### CI/CD Consideration
+- Fix must not break: <build/typecheck/health>
+```
+
+**ONLY AFTER discovery → proceed to Phase 1 (Diagnosis)**
+
 ### Phase 1: Diagnosis (opus)
 Spawn debugger to analyze the bug:
 
@@ -144,10 +210,19 @@ Before reporting completion:
 
 ## Execution
 
-1. Spawn debugger (opus) for thorough diagnosis
-2. Review diagnosis with user if complex
-3. Spawn code-writer to implement fix
-4. Perform smoke validation (verify fix works)
-5. Document test plan
-6. Create test-debt issue
-7. Report completion with summary
+1. **DISCOVERY PHASE (mandatory):**
+   - Read WORKER_CONTEXT.md and/or CLAUDE.md for project context
+   - Spawn explorer to find related code and patterns
+   - Understand CI/CD implications
+   - Document pre-debug context
+2. Spawn debugger (opus) for thorough diagnosis
+   - Pass discovery context to debugger
+3. Review diagnosis with user if complex
+4. Spawn code-writer to implement fix
+   - Pass debugger findings AND discovery context
+5. Perform smoke validation (verify fix works)
+6. Document test plan
+7. Create test-debt issue
+8. Report completion with summary
+
+**Critical:** The discovery phase helps the debugger focus on the right areas and ensures the fix follows project patterns.

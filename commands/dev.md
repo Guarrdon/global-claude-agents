@@ -35,6 +35,84 @@ Based on the task, choose the appropriate workflow:
 1. **code-writer** (sonnet) - Implement directly
 2. Verify with type-check and lint
 
+## Phase 0: Discovery (MANDATORY before spawning workers)
+
+**Before spawning ANY implementation worker, complete this discovery phase.**
+
+### Step 1: Load Worker Context
+
+```bash
+# Read the condensed worker context (if it exists)
+cat WORKER_CONTEXT.md 2>/dev/null
+```
+
+From WORKER_CONTEXT.md (or CLAUDE.md if not available), understand:
+- **CI/CD process** - How do deployments work? What will happen when this merges?
+- **Critical constraints** - Database patterns, no-ORM rule, Server Components preference
+- **Key file locations** - Where should this code live?
+
+### Step 2: Explore Related Code
+
+**For any non-trivial task**, spawn an explorer first:
+
+```
+Task(
+  subagent_type: "Explore",
+  model: "haiku",
+  description: "explorer: find related code for <task>",
+  prompt: """
+    Explore the codebase to understand existing patterns for this task:
+
+    Task: <TASK_DESCRIPTION>
+
+    Find and report:
+    1. Similar features/code that already exist
+    2. Patterns used in those files (naming, structure, imports)
+    3. Database tables involved (if any)
+    4. API routes affected (if any)
+    5. Components that might need updates
+    6. Files that import/depend on areas being changed
+
+    This context will be passed to the code-writer.
+  """
+)
+```
+
+### Step 3: Verify CI/CD Readiness
+
+Before implementation, confirm understanding of:
+- [ ] Build will pass after changes (`npm run build`)
+- [ ] Type check will pass (`npm run typecheck`)
+- [ ] No breaking changes to health check endpoints
+- [ ] Database changes (if any) have a plan
+
+### Step 4: Document Discovery Summary
+
+```
+## Discovery Summary
+
+### Task Understanding
+- What needs to be built/changed: <summary>
+- Why: <business/technical reason>
+
+### Existing Patterns Found
+- Pattern 1: <file> - <how it's done>
+- Pattern 2: <file> - <how it's done>
+
+### Files to Create/Modify
+- <file> - <what to do>
+
+### CI/CD Impact
+- Build risk: Low/Medium/High
+- Breaking changes: None/Backwards-compatible/Breaking
+
+### Dependencies
+- Files that depend on changes: <list>
+- External dependencies: <if any>
+```
+
+**ONLY AFTER discovery is complete → proceed to spawn workers**
+
 ## How to Spawn Workers
 
 Use the Task tool with these configurations:
@@ -114,11 +192,17 @@ Before reporting completion, verify:
 
 ## Project Context
 
-Read the project's `CLAUDE.md` for:
+**Read in this order:**
+
+1. **WORKER_CONTEXT.md** (if exists) - Condensed quick-reference with CI/CD summary
+2. **CLAUDE.md** - Full project configuration and patterns
+
+Key information to extract:
+- CI/CD process (what happens when code merges to master)
 - Tech stack and framework patterns
-- Database access patterns
+- Database access patterns (PostgreSQL, executeQuery())
 - Code organization conventions
-- Testing framework and patterns
+- Testing strategy (smoke validation vs comprehensive)
 
 ## Git Workflow
 
@@ -130,7 +214,14 @@ After code changes:
 ## Execution
 
 1. Analyze the task to determine workflow type
-2. Read project CLAUDE.md for context
+2. **DISCOVERY PHASE (mandatory):**
+   - Read WORKER_CONTEXT.md and/or CLAUDE.md
+   - Spawn explorer to find related code and patterns
+   - Understand CI/CD implications
+   - Document discovery summary
 3. Spawn workers in sequence (wait for each to complete)
+   - Pass discovery context to each worker
 4. Verify quality gates
 5. Report completion with summary
+
+**Critical:** Do NOT skip the discovery phase. Workers without context produce inconsistent results.

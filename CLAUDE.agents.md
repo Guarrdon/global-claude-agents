@@ -123,9 +123,25 @@ Task(
 
 ## Workflow Patterns
 
+### Discovery-First Pattern (REQUIRED for all implementation workflows)
+
+**Every workflow that modifies code MUST include a discovery phase:**
+
+```
+DISCOVERY → [existing workflow]
+
+Discovery Phase:
+1. Read WORKER_CONTEXT.md (condensed project context)
+2. Spawn explorer to find related code/patterns
+3. Understand CI/CD implications
+4. Document findings before proceeding
+```
+
+**Why:** Workers without context produce inconsistent results, miss patterns, and don't understand CI/CD implications.
+
 **Sequential** (most common):
 ```
-code-writer → test-automator → code-reviewer
+discovery → code-writer → test-automator → code-reviewer
 ```
 
 **Parallel** (independent tasks):
@@ -136,8 +152,8 @@ explorer (find Y) ─┘
 
 **Conditional** (based on results):
 ```
-debugger → simple? → code-writer
-         → complex? → report findings
+discovery → debugger → simple? → code-writer
+                     → complex? → report findings
 ```
 
 **Audit workflow** (multi-phase):
@@ -255,8 +271,32 @@ If no worktree script, fall back to standard `git checkout -b`.
 ## Critical Rules
 
 1. **Use slash commands** to start workflows
-2. **Spawn visible agents** using Task tool with correct subagent_type
-3. **Use correct models** - opus for review/debug, haiku for explore/git, sonnet for rest
-4. **Read project CLAUDE.md** - project rules override global defaults
-5. **Use PRs** - never push directly to main/master
-6. **Sequential spawning** - wait for each worker to complete before spawning next
+2. **DISCOVERY FIRST** - Always run discovery phase before implementation workers
+3. **Spawn visible agents** using Task tool with correct subagent_type
+4. **Use correct models** - opus for review/debug, haiku for explore/git, sonnet for rest
+5. **Read WORKER_CONTEXT.md first** (if exists), then project CLAUDE.md
+6. **Use PRs** - never push directly to main/master
+7. **Sequential spawning** - wait for each worker to complete before spawning next
+
+---
+
+## Worker Context Files
+
+Projects can provide condensed context for workers:
+
+### WORKER_CONTEXT.md (Project-Level)
+
+A condensed (~100 line) quick-reference containing:
+- **CI/CD Process Summary** - How deployments work, what triggers them
+- **Critical Constraints** - Database patterns, architecture rules
+- **Key Patterns** - File locations, naming conventions
+- **Pre-Implementation Checklist** - What to verify before coding
+
+**Workflows should read this BEFORE spawning implementation workers.**
+
+```bash
+# Check for worker context
+cat WORKER_CONTEXT.md 2>/dev/null || cat CLAUDE.md | head -150
+```
+
+If WORKER_CONTEXT.md doesn't exist, fall back to reading the top of CLAUDE.md.
