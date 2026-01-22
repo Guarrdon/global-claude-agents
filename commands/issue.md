@@ -42,7 +42,8 @@ TodoWrite([
   { content: "Create worktree for issue", status: "pending", activeForm: "Creating worktree" },
   { content: "Diagnose issue (debugger)", status: "pending", activeForm: "Diagnosing issue" },
   { content: "Implement fix (code-writer)", status: "pending", activeForm: "Implementing fix" },
-  { content: "Add regression test (test-automator)", status: "pending", activeForm: "Adding regression test" },
+  { content: "Smoke validation & test planning", status: "pending", activeForm: "Validating fix and documenting tests" },
+  { content: "Create test-debt issue", status: "pending", activeForm: "Creating test-debt issue" },
   { content: "Create pull request", status: "pending", activeForm: "Creating pull request" }
 ])
 ```
@@ -254,23 +255,62 @@ Task(
 )
 ```
 
-**Step 3: Add Regression Test**
-```
-Task(
-  subagent_type: "test-automator",
-  model: "sonnet",
-  description: "test-automator: regression test for #<NUMBER>",
-  prompt: """
-    Add regression test for issue #<NUMBER>:
-    <ISSUE_DESCRIPTION>
+**Step 3: Smoke Validation & Test Planning**
 
-    The fix was:
-    <CODE_WRITER_SUMMARY>
+Instead of implementing full regression tests, perform smoke validation and document tests for later:
 
-    Ensure the bug cannot recur.
-  """
-)
 ```
+A. SMOKE VALIDATION (Do this directly, no agent spawn needed)
+
+Smoke Validation Checklist:
+- [ ] Verified fix resolves the issue
+- [ ] Checked related functionality still works
+- [ ] No console errors / server errors introduced
+- [ ] Build succeeds (npm run build)
+- [ ] Type check passes (npm run typecheck)
+
+Validation method: <describe what you did>
+```
+
+```
+B. TEST PLAN DOCUMENTATION (Document, don't implement)
+
+## Proposed Tests for #<NUMBER>
+
+### Unit Tests
+- [ ] Test: <description>
+  - Input: <what to test>
+  - Expected: <expected outcome>
+
+### Integration Tests
+- [ ] Test: <description>
+
+### Edge Cases
+- [ ] <edge case identified during fix>
+
+### Notes
+- Parallelization safe: Yes/No
+- Priority: Critical/Standard/Nice-to-have
+```
+
+```
+C. CREATE TEST-DEBT ISSUE (Automatic)
+
+gh issue create \
+  --title "Tests: <original issue title>" \
+  --label "test-debt,automated" \
+  --body "## Background
+This issue tracks test implementation for #<ORIGINAL_NUMBER>.
+
+## Test Plan
+<Test plan from above>
+
+## Acceptance Criteria
+- [ ] Tests implemented and passing
+- [ ] Added to CI pipeline"
+```
+
+**Why this approach:** Until a project reaches functional completeness, focus on validating fixes work rather than blocking delivery on comprehensive test coverage. Test implementation is batched and scheduled separately.
 
 ### Feature Request (if issue has enhancement/feature label)
 Use: code-writer -> test-automator -> code-reviewer sequence.
@@ -356,8 +396,10 @@ Before reporting completion, verify:
 - [ ] Worktree/branch created for the fix
 - [ ] Root cause identified and documented
 - [ ] Fix implemented (minimal scope)
-- [ ] Regression test added
-- [ ] All tests pass
+- [ ] Smoke validation passed (fix verified working)
+- [ ] Build and type check passing
+- [ ] Test plan documented
+- [ ] Test-debt issue created (if tests needed)
 - [ ] PR created with `Fixes #<NUMBER>`
 - [ ] PR URL reported to user
 
@@ -380,6 +422,8 @@ The workflow adapts to available project tooling:
 - **Skipping the checkpoint verification** - Always verify the status update succeeded
 - **Proceeding after board update failure** without explicit user confirmation
 - Fixing multiple issues in one PR
-- Skipping the regression test
+- Skipping smoke validation
+- Skipping test plan documentation
+- Blocking fix on comprehensive test implementation (during early dev)
 - Scope creep / "while I'm here" changes
 - Not using `Fixes #` syntax in PR (misses auto-close)

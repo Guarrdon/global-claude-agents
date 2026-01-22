@@ -93,38 +93,53 @@ Task(
 )
 ```
 
-### Phase 3: Regression Test (sonnet)
-Add test to prevent bug recurrence:
+### Phase 3: Smoke Validation & Test Planning
+Instead of implementing regression tests, validate the fix and document tests for later:
 
 ```
-Task(
-  subagent_type: "test-automator",
-  model: "sonnet",
-  description: "test-automator: regression test for <bug>",
-  prompt: """
-    Add a regression test for this bug fix.
+## Smoke Validation Checklist
+- [ ] Verified fix resolves the issue
+- [ ] Checked related functionality still works
+- [ ] No console errors / server errors introduced
+- [ ] Build succeeds (npm run build)
+- [ ] Type check passes (npm run typecheck)
 
-    ## Bug Description
-    <what was wrong>
-
-    ## Fix Applied
-    <what was changed>
-
-    ## Test Requirements
-    - Test that reproduces the original bug condition
-    - Verify the fix prevents the issue
-    - Cover edge cases identified during diagnosis
-  """
-)
+Validation method: <describe what you did>
 ```
+
+```
+## Test Plan Documentation (don't implement, just document)
+
+### Proposed Regression Tests
+- [ ] Test: <test that reproduces original bug condition>
+- [ ] Test: <verify the fix prevents the issue>
+- [ ] Test: <edge case from diagnosis>
+
+### Notes
+- Priority: Critical/Standard/Nice-to-have
+- Parallelization safe: Yes/No
+```
+
+```
+## Create Test-Debt Issue
+
+gh issue create \
+  --title "Tests: <bug summary>" \
+  --label "test-debt,automated" \
+  --body "Tracks regression test for fix in #<ORIGINAL>. See test plan above."
+```
+
+**Why this approach:** During early development, focus on shipping fixes quickly with smoke validation. Test implementation is batched and scheduled at functional completeness milestones.
 
 ## Quality Gates
 
 Before reporting completion:
 - [ ] Root cause identified
 - [ ] Fix implemented and verified
-- [ ] Regression test added
-- [ ] All existing tests still pass
+- [ ] Smoke validation passed
+- [ ] Build and type check passing
+- [ ] Test plan documented
+- [ ] Test-debt issue created
 - [ ] No new lint/type errors
 
 ## Execution
@@ -132,6 +147,7 @@ Before reporting completion:
 1. Spawn debugger (opus) for thorough diagnosis
 2. Review diagnosis with user if complex
 3. Spawn code-writer to implement fix
-4. Spawn test-automator for regression test
-5. Verify all tests pass
-6. Report completion with summary
+4. Perform smoke validation (verify fix works)
+5. Document test plan
+6. Create test-debt issue
+7. Report completion with summary

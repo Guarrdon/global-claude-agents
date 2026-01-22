@@ -16,17 +16,19 @@ Based on the task, choose the appropriate workflow:
 
 ### New Feature Implementation
 1. **code-writer** (sonnet) - Implement the feature
-2. **test-automator** (sonnet) - Add comprehensive tests
+2. **Smoke validation** - Verify feature works, document test plan
 3. **code-reviewer** (opus) - Review for quality and security
+4. **Create test-debt issue** - Track tests for later implementation
 
 ### Bug Fix
 1. **debugger** (opus) - Diagnose root cause
 2. **code-writer** (sonnet) - Implement the fix
-3. **test-automator** (sonnet) - Add regression test
+3. **Smoke validation** - Verify fix works, document test plan
+4. **Create test-debt issue** - Track regression test for later
 
 ### Code Refactoring
-1. **test-automator** (sonnet) - Ensure test coverage exists
-2. **code-writer** (sonnet) - Perform refactoring
+1. **code-writer** (sonnet) - Perform refactoring
+2. **Smoke validation** - Verify behavior unchanged
 3. **code-reviewer** (opus) - Verify no regressions
 
 ### Quick Implementation (small changes)
@@ -67,7 +69,28 @@ Task(
 )
 ```
 
-### test-automator
+### Smoke Validation (instead of test-automator for most tasks)
+
+For early-stage projects, replace comprehensive testing with smoke validation:
+
+```
+## Smoke Validation Checklist
+- [ ] Verified change works as expected
+- [ ] Checked related functionality still works
+- [ ] Build succeeds (npm run build)
+- [ ] Type check passes (npm run typecheck)
+- [ ] Lint passes (npm run lint)
+
+## Test Plan (Document, don't implement)
+- Proposed unit tests: <list>
+- Proposed integration tests: <list>
+- Edge cases: <list>
+
+## Create Test-Debt Issue
+gh issue create --title "Tests: <feature/fix>" --label "test-debt,automated"
+```
+
+### test-automator (use sparingly during early development)
 ```
 Task(
   subagent_type: "test-automator",
@@ -77,12 +100,16 @@ Task(
 )
 ```
 
+**When to use test-automator:** Only when project has reached functional completeness milestone, or for critical path functionality that MUST have tests before merge.
+
 ## Quality Gates
 
 Before reporting completion, verify:
-- [ ] All tests pass (`npm test` or equivalent)
+- [ ] Smoke validation passed
 - [ ] No type errors (`npm run typecheck` if TypeScript)
 - [ ] No lint errors (`npm run lint`)
+- [ ] Test plan documented
+- [ ] Test-debt issue created (if applicable)
 - [ ] Code reviewed (for features, not quick fixes)
 
 ## Project Context
