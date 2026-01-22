@@ -21,7 +21,7 @@ $ARGUMENTS
 3. WORKTREE  -> Create isolated worktree for issue branch
 4. IMPLEMENT -> Spawn dev workers for the fix
 5. PR        -> Create pull request with issue reference
-6. COMPLETE  -> Update board to "Done" (after PR merged)
+6. DONE      -> Report PR URL and STOP (GitHub auto-closes on merge)
 ```
 
 **CRITICAL WORKFLOW GATES:**
@@ -357,23 +357,13 @@ EOF
 
 **Report PR URL to user.**
 
-## Phase 7: Update Board to "Done"
+## WORKFLOW COMPLETE - STOP
 
-The board is typically updated to "Done" after the PR is merged.
-
-**Option A: Automatic** - If using `Fixes #<NUMBER>` in PR, GitHub auto-closes the issue on merge.
-
-**Option B: Manual** - User runs `/issue done #123` after merge:
-
-```bash
-gh project item-edit \
-  --project-id <PROJECT_ID> \
-  --id <ITEM_ID> \
-  --field-id <STATUS_FIELD_ID> \
-  --single-select-option-id <DONE_OPTION_ID>
-
-echo "Issue #<NUMBER> marked as Done on project board"
-```
+After reporting the PR URL:
+1. **Your work is done** - Do not continue
+2. **Do not poll or wait** for PR merge status
+3. The PR uses `Fixes #<NUMBER>` syntax, so GitHub will auto-close the issue when merged
+4. **Report completion summary and stop immediately**
 
 ## Commands Reference
 
@@ -382,7 +372,6 @@ echo "Issue #<NUMBER> marked as Done on project board"
 | `/issue` | Pick highest priority open issue and resolve it |
 | `/issue #123` | Resolve specific issue number 123 |
 | `/issue 123` | Same as above (# is optional) |
-| `/issue done #123` | Mark issue as Done on board (run after PR merge) |
 | `/issue status` | Show current git/worktree status |
 
 ## Execution Checklist
