@@ -13,17 +13,20 @@ $ARGUMENTS
 ## Workflow Overview
 
 ```
+0. VALIDATE  -> Validate git worktree context (ALWAYS FIRST)
 1. SETUP     -> Detect project config, select/validate issue
 2. TRACK     -> Set issue to "In Progress" on project board
    ├── BLOCKING: Must succeed before proceeding
    └── VERIFY: Confirm status update before continuing
-3. BRANCH    -> Create/switch to worktree or feature branch
+3. WORKTREE  -> Create isolated worktree for issue branch
 4. IMPLEMENT -> Spawn dev workers for the fix
 5. PR        -> Create pull request with issue reference
 6. COMPLETE  -> Update board to "Done" (after PR merged)
 ```
 
-**CRITICAL WORKFLOW GATE:** Phase 2 (TRACK) is a **blocking checkpoint**. You MUST NOT proceed to Phase 3 (BRANCH) or any subsequent phase until the issue has been successfully marked "In Progress" on the project board. This prevents duplicate work by signaling to other team members that the issue is being actively worked on.
+**CRITICAL WORKFLOW GATES:**
+- Phase 0 (VALIDATE) ensures session isolation - prevents conflicts with other Claude sessions
+- Phase 2 (TRACK) prevents duplicate work by signaling issue is being worked on
 
 ## Required: Track Progress with TodoWrite
 
@@ -31,11 +34,12 @@ $ARGUMENTS
 
 ```
 TodoWrite([
+  { content: "Validate git worktree context", status: "pending", activeForm: "Validating worktree context" },
   { content: "Detect project config", status: "pending", activeForm: "Detecting project config" },
   { content: "Select/validate issue", status: "pending", activeForm: "Selecting issue" },
   { content: "Set issue to In Progress on board", status: "pending", activeForm: "Setting issue to In Progress" },
   { content: "CHECKPOINT: Verify In Progress succeeded", status: "pending", activeForm: "Verifying In Progress status" },
-  { content: "Create worktree/branch", status: "pending", activeForm: "Creating worktree/branch" },
+  { content: "Create worktree for issue", status: "pending", activeForm: "Creating worktree" },
   { content: "Diagnose issue (debugger)", status: "pending", activeForm: "Diagnosing issue" },
   { content: "Implement fix (code-writer)", status: "pending", activeForm: "Implementing fix" },
   { content: "Add regression test (test-automator)", status: "pending", activeForm: "Adding regression test" },
@@ -43,7 +47,26 @@ TodoWrite([
 ])
 ```
 
-Mark each todo as `in_progress` when starting and `completed` when done. **The CHECKPOINT todo enforces the blocking gate.**
+Mark each todo as `in_progress` when starting and `completed` when done.
+
+## Phase 0: Validate Worktree Context (ALWAYS FIRST)
+
+**This phase runs BEFORE any other work. It ensures session isolation.**
+
+```bash
+# Run the validation command
+scripts/git-workflow.sh validate
+```
+
+**Expected outcomes:**
+- ✅ **Main repo on master** → Ready to create worktree (continue to Phase 1)
+- ✅ **Already in a worktree** → Already isolated (continue to Phase 1)
+- 🚨 **Main repo on feature branch** → STOP! Fix before proceeding
+
+**If validation fails (feature branch in main repo):**
+1. Run: `git checkout master`
+2. Re-run: `scripts/git-workflow.sh validate`
+3. Only proceed when validation passes
 
 ## Phase 1: Project Detection
 
@@ -149,26 +172,29 @@ echo "Issue #<NUMBER> current status: $CURRENT_STATUS"
 - Mark the "CHECKPOINT: Verify In Progress succeeded" todo as completed
 - Proceed to Phase 4
 
-## Phase 4: Create Worktree/Branch
+## Phase 4: Create Worktree for Issue
 
-### If Project Has Worktree Script (`scripts/git-workflow.sh`)
+### If Project Has Worktree Script (`scripts/git-workflow.sh`) - PREFERRED
+
 ```bash
 # Generate branch name from issue
 BRANCH="fix/issue-<NUMBER>-<slug-from-title>"
 
-# Check current status
-scripts/git-workflow.sh status
+# Create the worktree (from main repo on master)
+scripts/git-workflow.sh start $BRANCH
 
-# Switch to worktree (creates if needed, auto-commits WIP on current branch)
-scripts/git-workflow.sh switch $BRANCH
+# CRITICAL: Change to worktree directory
+# The script outputs the path - you MUST cd to it
+cd /path/to/StreamlineSales-worktrees/$BRANCH
 
-# IMPORTANT: Working directory changes!
-cd <WORKTREE_PATH>
-
-# Inform user of new working directory
+# Verify you're in the worktree (should show "worktree" type)
+scripts/git-workflow.sh validate
 ```
 
-### Standard Git (No Worktree Script)
+**Important:** The `start` command outputs the cd command you need to run. You MUST change to the worktree directory before proceeding. All subsequent work happens in the worktree, NOT the main repo.
+
+### Standard Git (No Worktree Script) - Fallback
+
 ```bash
 # Ensure on latest main/master
 git fetch origin
@@ -180,6 +206,8 @@ git checkout -b $BRANCH
 
 echo "Created branch: $BRANCH"
 ```
+
+**Note:** Standard git workflow doesn't provide session isolation. Multiple Claude sessions may conflict.
 
 ## Phase 5: Implementation
 
@@ -345,12 +373,13 @@ The workflow adapts to available project tooling:
 
 ## Anti-Patterns to AVOID
 
-- **Starting code work BEFORE setting "In Progress"** - This is the #1 violation. The TRACK phase is a BLOCKING GATE.
-- **Skipping the checkpoint verification** - Always verify the status update succeeded before continuing
+- **Skipping Phase 0 (validate)** - Always validate worktree context first to avoid session conflicts
+- **Working in main repo on a feature branch** - Creates conflicts with other Claude sessions
+- **Forgetting to cd to worktree** - After `start`, you MUST cd to the worktree directory
+- **Starting code work BEFORE setting "In Progress"** - The TRACK phase is a BLOCKING GATE
+- **Skipping the checkpoint verification** - Always verify the status update succeeded
 - **Proceeding after board update failure** without explicit user confirmation
-- Working directly on main/master branch
 - Fixing multiple issues in one PR
 - Skipping the regression test
 - Scope creep / "while I'm here" changes
-- Forgetting to inform user of directory changes (worktree)
 - Not using `Fixes #` syntax in PR (misses auto-close)
