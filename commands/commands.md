@@ -106,6 +106,17 @@ Print the following information directly to the user (do NOT spawn any agents):
 │  Purpose: Infrastructure (DB, CI/CD) │
 │  Workers: db-engineer, cloud-engineer│
 │           infra-engineer             │
+│  ──────────────────────────────────  │
+│  Command: /release                   │
+│  Purpose: Create release (tag + push │
+│           triggers CI/CD)            │
+│  Workers: (direct git commands)      │
+│  Usage:                              │
+│    /release crm 0.2.3                │
+│    /release admin 0.1.0              │
+│    /release corporate 0.1.0          │
+│  Tags created:                       │
+│    crm-v0.2.3, admin-v0.1.0, etc.    │
 │                                      │
 └──────────────────────────────────────┘
 
@@ -125,6 +136,9 @@ Print the following information directly to the user (do NOT spawn any agents):
 │                                      │
 │  haiku  ($)   - Fast tasks           │
 │                 /explore, /git       │
+│                                      │
+│  none   (-)   - Direct commands      │
+│                 /release             │
 │                                      │
 └──────────────────────────────────────┘
 
