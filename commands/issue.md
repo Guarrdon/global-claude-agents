@@ -20,8 +20,10 @@ $ARGUMENTS
    └── VERIFY: Confirm status update before continuing
 3. WORKTREE  -> Create isolated worktree for issue branch
 4. IMPLEMENT -> Spawn dev workers for the fix
-5. PR        -> Create pull request with issue reference
-6. COMPLETE  -> Update board to "Done" (after PR merged)
+5. TEST      -> Run unit tests, add new unit tests
+6. PR        -> Create pull request with issue reference
+7. COMPLETE  -> Update board to "Done" (after PR merged)
+8. CLEANUP   -> Report completion, return to main repo
 ```
 
 **CRITICAL WORKFLOW GATES:**
@@ -44,9 +46,13 @@ TodoWrite([
   { content: "Create worktree for issue", status: "pending", activeForm: "Creating worktree" },
   { content: "Diagnose issue (debugger)", status: "pending", activeForm: "Diagnosing issue" },
   { content: "Implement fix (code-writer)", status: "pending", activeForm: "Implementing fix" },
-  { content: "Smoke validation & test planning", status: "pending", activeForm: "Validating fix and documenting tests" },
-  { content: "Create test-debt issue", status: "pending", activeForm: "Creating test-debt issue" },
-  { content: "Create pull request", status: "pending", activeForm: "Creating pull request" }
+  { content: "Run unit tests (regression check)", status: "pending", activeForm: "Running unit tests for regressions" },
+  { content: "Add unit tests for new functionality", status: "pending", activeForm: "Adding unit tests" },
+  { content: "Smoke validation", status: "pending", activeForm: "Validating fix" },
+  { content: "Create P5 test issue (integration/system)", status: "pending", activeForm: "Creating test planning issue" },
+  { content: "Create pull request", status: "pending", activeForm: "Creating pull request" },
+  { content: "Report PR URL and next steps", status: "pending", activeForm: "Reporting completion" },
+  { content: "Cleanup: return to main repo", status: "pending", activeForm: "Cleaning up worktree" }
 ])
 ```
 
@@ -334,12 +340,78 @@ Task(
 )
 ```
 
-**Step 3: Smoke Validation & Test Planning**
+**Step 3: Unit Testing & Validation**
 
-Instead of implementing full regression tests, perform smoke validation and document tests for later:
+This step ensures fast feedback during development while deferring slow integration/system tests to dedicated sessions.
+
+**Testing Philosophy:**
+- **Unit tests (mock-style)** = Fast, run every time, required for PR
+- **Integration/System tests** = Slow, planned via P5 issues, implemented in dedicated sessions
 
 ```
-A. SMOKE VALIDATION (Do this directly, no agent spawn needed)
+A. RUN EXISTING UNIT TESTS (Regression Check)
+
+First, check if the project has unit tests and run them:
+
+# Check for test configuration
+ls package.json jest.config.* vitest.config.* 2>/dev/null
+
+# Look for existing unit tests
+find src -name "*.test.ts" -o -name "*.spec.ts" 2>/dev/null | head -5
+
+# Run unit tests (project-specific command)
+# Common commands - use what's configured in package.json:
+npm test              # Default
+npm run test:unit     # If separate unit test script exists
+jest --testPathPattern="unit|__tests__"  # Jest specific
+vitest run            # Vitest specific
+
+If tests exist and ANY fail:
+1. STOP - Do not proceed
+2. Determine if failure is:
+   - Pre-existing (not caused by this fix) → Document in PR, continue
+   - Caused by this fix → Fix the code or update the test
+3. All unit tests must pass before proceeding
+```
+
+```
+B. ADD UNIT TESTS FOR NEW FUNCTIONALITY
+
+Spawn test-automator to add relevant unit tests for the fix:
+
+Task(
+  subagent_type: "test-automator",
+  model: "sonnet",
+  description: "test-automator: add unit tests for #<NUMBER>",
+  prompt: """
+    Add unit tests for the fix implemented in issue #<NUMBER>.
+
+    Fix summary: <BRIEF DESCRIPTION OF WHAT WAS FIXED>
+    Files modified: <LIST OF MODIFIED FILES>
+
+    Requirements:
+    - Write UNIT tests only (mock dependencies, fast execution)
+    - Focus on the specific functionality fixed/added
+    - Use existing test patterns in the codebase
+    - Tests must be parallelization-safe (no shared state)
+    - Target: 2-5 focused tests, not comprehensive coverage
+
+    Do NOT write:
+    - Integration tests (those go in a separate P5 issue)
+    - E2E tests (those go in a separate P5 issue)
+    - Tests requiring database or external services
+
+    After writing tests, run them to verify they pass.
+  """
+)
+
+If no test infrastructure exists:
+- Skip this step (don't block on setting up test framework)
+- Note in PR: "No unit test infrastructure - tests documented in P5 issue"
+```
+
+```
+C. SMOKE VALIDATION (Do this directly, no agent spawn needed)
 
 Smoke Validation Checklist:
 - [ ] Verified fix resolves the issue
@@ -347,49 +419,74 @@ Smoke Validation Checklist:
 - [ ] No console errors / server errors introduced
 - [ ] Build succeeds (npm run build)
 - [ ] Type check passes (npm run typecheck)
+- [ ] All unit tests pass (from step A)
+- [ ] New unit tests pass (from step B)
 
 Validation method: <describe what you did>
 ```
 
 ```
-B. TEST PLAN DOCUMENTATION (Document, don't implement)
+D. DOCUMENT INTEGRATION/SYSTEM TEST PLAN (For future implementation)
 
-## Proposed Tests for #<NUMBER>
+If integration or system tests would be valuable for this fix, document them:
 
-### Unit Tests
+## Integration/System Test Plan for #<NUMBER>
+
+### Integration Tests (require real dependencies)
 - [ ] Test: <description>
-  - Input: <what to test>
-  - Expected: <expected outcome>
+  - Dependencies: <database, API, etc.>
+  - Setup required: <what needs to be configured>
 
-### Integration Tests
-- [ ] Test: <description>
-
-### Edge Cases
-- [ ] <edge case identified during fix>
+### System/E2E Tests
+- [ ] Test: <user flow description>
+  - Preconditions: <required state>
+  - Steps: <user actions>
+  - Expected: <outcome>
 
 ### Notes
-- Parallelization safe: Yes/No
-- Priority: Critical/Standard/Nice-to-have
+- Estimated complexity: Simple / Medium / Complex
+- Requires test environment: Yes / No
 ```
 
 ```
-C. CREATE TEST-DEBT ISSUE (Automatic)
+E. CREATE P5 TEST ISSUE (If integration/system tests documented)
+
+Only create this issue if integration/system tests were documented in step D:
+
+# Get project board priority field info (if configured in CLAUDE.md)
+# Use P5: Testing priority for test-debt issues
 
 gh issue create \
-  --title "Tests: <original issue title>" \
-  --label "test-debt,automated" \
+  --title "Tests: Integration/System tests for #<ORIGINAL_NUMBER>" \
+  --label "test-debt,P5-testing,automated" \
   --body "## Background
-This issue tracks test implementation for #<ORIGINAL_NUMBER>.
+This issue tracks **integration and system test** implementation for #<ORIGINAL_NUMBER>.
+
+Unit tests were added as part of the original fix.
 
 ## Test Plan
-<Test plan from above>
+<Integration/System test plan from step D>
 
 ## Acceptance Criteria
-- [ ] Tests implemented and passing
-- [ ] Added to CI pipeline"
+- [ ] Integration tests implemented and passing
+- [ ] System/E2E tests implemented and passing (if applicable)
+- [ ] Tests added to CI pipeline
+
+## Notes
+This is a P5 (Testing) priority issue. Implementation should be done in a dedicated testing session, not during feature development.
+
+---
+*Auto-generated by /issue workflow*"
+
+# If project board is configured, add issue and set Priority to P5
+# (See CLAUDE.md for project-specific field IDs)
 ```
 
-**Why this approach:** Until a project reaches functional completeness, focus on validating fixes work rather than blocking delivery on comprehensive test coverage. Test implementation is batched and scheduled separately.
+**Why this approach:**
+- **Fast feedback:** Unit tests run in seconds, catch regressions immediately
+- **No blocking:** Don't wait for slow integration tests during development
+- **Batched work:** Integration/system tests are implemented in dedicated sessions (P5 priority)
+- **Clear separation:** Unit tests = part of fix, Integration tests = separate tracked work
 
 ### Feature Request (if issue has enhancement/feature label)
 Use: code-writer -> test-automator -> code-reviewer sequence.
@@ -424,10 +521,11 @@ Fixes #<NUMBER>
 - <Change 1>
 - <Change 2>
 
-## Test Plan
-- [ ] Regression test added
-- [ ] All existing tests pass
-- [ ] Manual verification
+## Testing
+- [x] Unit tests pass (regression check)
+- [x] Unit tests added for new functionality
+- [x] Build and typecheck pass
+- [ ] Integration/system tests: <P5 issue link if created, or "N/A">
 
 Generated with Claude Code
 EOF
@@ -454,6 +552,63 @@ gh project item-edit \
 echo "Issue #<NUMBER> marked as Done on project board"
 ```
 
+## Phase 8: Cleanup & Handoff
+
+After PR is created, prepare for session end:
+
+### Report Completion to User
+
+```
+## Issue #<NUMBER> Resolution Complete
+
+**PR Created:** <PR_URL>
+
+### Summary
+- Root cause: <brief description>
+- Fix: <what was changed>
+- Unit tests: <added/updated/existing pass>
+
+### Next Steps
+1. Review and merge PR: <PR_URL>
+2. Board will auto-update to "Done" when PR merges (via `Fixes #<NUMBER>`)
+3. Integration/system tests: <P5_ISSUE_URL or "N/A">
+
+### Worktree Status
+Currently in: /path/to/worktree/$BRANCH
+To cleanup after merge: `scripts/git-workflow.sh cleanup`
+```
+
+### Return to Main Repo (Optional)
+
+If continuing with other work in this session:
+
+```bash
+# Return to main repo on master
+scripts/git-workflow.sh main
+
+# Verify back in main repo
+scripts/git-workflow.sh validate
+```
+
+### Worktree Cleanup (After PR Merge)
+
+Worktrees should be cleaned up after their PRs are merged:
+
+```bash
+# From main repo, clean up merged worktrees
+scripts/git-workflow.sh cleanup
+```
+
+**Note:** Don't cleanup worktrees with unmerged PRs - the work would be lost.
+
+**Without worktree script:**
+```bash
+cd /path/to/main/repo
+git checkout master
+git worktree remove /path/to/worktree  # Only if merged
+git branch -d $BRANCH                   # Only if merged
+```
+
 ## Commands Reference
 
 | Usage | Description |
@@ -475,12 +630,15 @@ Before reporting completion, verify:
 - [ ] Worktree/branch created for the fix
 - [ ] Root cause identified and documented
 - [ ] Fix implemented (minimal scope)
+- [ ] **Existing unit tests pass** (regression check)
+- [ ] **Unit tests added** for new functionality (or documented why skipped)
 - [ ] Smoke validation passed (fix verified working)
 - [ ] Build and type check passing
-- [ ] Test plan documented
-- [ ] Test-debt issue created (if tests needed)
+- [ ] P5 test issue created (if integration/system tests needed)
 - [ ] PR created with `Fixes #<NUMBER>`
 - [ ] PR URL reported to user
+- [ ] Completion summary provided (PR URL, next steps, worktree status)
+- [ ] User informed about cleanup (after PR merge)
 
 ## Fallback Behavior
 
@@ -500,9 +658,11 @@ The workflow adapts to available project tooling:
 - **Starting code work BEFORE setting "In Progress"** - The TRACK phase is a BLOCKING GATE
 - **Skipping the checkpoint verification** - Always verify the status update succeeded
 - **Proceeding after board update failure** without explicit user confirmation
+- **Skipping unit test regression check** - Always run existing unit tests before PR
+- **Writing integration tests during /issue** - These belong in P5 issues for dedicated sessions
+- **Blocking on missing test infrastructure** - Document tests, don't block the fix
+- **Skipping cleanup/handoff** - Always report completion and worktree status
 - Fixing multiple issues in one PR
 - Skipping smoke validation
-- Skipping test plan documentation
-- Blocking fix on comprehensive test implementation (during early dev)
 - Scope creep / "while I'm here" changes
 - Not using `Fixes #` syntax in PR (misses auto-close)
