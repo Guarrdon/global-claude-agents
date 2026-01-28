@@ -20,6 +20,7 @@ Use these commands to trigger specialized workflows. Each spawns worker agents w
 | `/issue` | GitHub issue resolution (board + worktree + fix + PR) | debugger, code-writer, test-automator, git-manager |
 | `/analyze` | Business/technical analysis | analyst, product-analyst, researcher |
 | `/audit` | Feature audit (functional + optional UX) | functional-auditor, ux-auditor (opus), doc-writer, git-manager |
+| `/release` | Create a release (tag + push → CI/CD) | (direct git commands) |
 | `/commands` | List all commands and agents | (none - displays info) |
 
 ### Model Usage
