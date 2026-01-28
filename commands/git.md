@@ -37,6 +37,10 @@ scripts/git-workflow.sh commit-wip
 
 ### Standard Git Workflow
 ```bash
+# ALWAYS start from latest main to avoid merge conflicts
+git fetch origin
+git checkout main && git pull origin main
+
 # Create feature branch
 git checkout -b feature/my-feature
 

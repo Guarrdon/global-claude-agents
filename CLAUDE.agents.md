@@ -227,7 +227,11 @@ scripts/git-workflow.sh commit-wip      # Save WIP before switching
 - Always inform user of directory changes
 - Auto-commit WIP before switching contexts
 
-If no worktree script, fall back to standard `git checkout -b`.
+**If no worktree script, fall back to standard git (from latest main):**
+```bash
+git fetch origin && git checkout main && git pull origin main
+git checkout -b <branch>
+```
 
 ---
 
@@ -235,17 +239,37 @@ If no worktree script, fall back to standard `git checkout -b`.
 
 **All code changes MUST go through Pull Requests.**
 
-1. Create feature branch (never work on main/master)
-2. Commit changes
-3. Create PR via `gh pr create`
-4. Merge via PR (not direct push)
+### Creating Feature Branches
+
+**ALWAYS branch from latest origin/main to avoid merge conflicts:**
+
+```bash
+# 1. Fetch latest from remote
+git fetch origin
+
+# 2. Ensure local main is up to date
+git checkout main
+git pull origin main
+
+# 3. Create feature branch from updated main
+git checkout -b <prefix>/issue-<number>-<slug>
+```
+
+**Never skip the pull step** - branching from stale local main causes unnecessary merge conflicts.
 
 ### Branch Prefixes
 | Type | Prefix |
 |------|--------|
 | Feature | `feature/` |
 | Bug fix | `fix/` |
+| Config | `config/` |
 | Docs | `docs/` |
+
+### PR Workflow
+1. Commit changes with descriptive message
+2. Push branch: `git push -u origin <branch>`
+3. Create PR: `gh pr create`
+4. Merge via PR (not direct push)
 
 **Always check project CLAUDE.md** for custom git workflows.
 
