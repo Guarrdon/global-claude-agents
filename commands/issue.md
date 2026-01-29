@@ -36,14 +36,15 @@ $ARGUMENTS
 
 ```
 TodoWrite([
-  { content: "Validate git worktree context", status: "pending", activeForm: "Validating worktree context" },
-  { content: "Detect project config", status: "pending", activeForm: "Detecting project config" },
+  { content: "BLOCKER: Run scripts/git-workflow.sh validate", status: "pending", activeForm: "Running worktree validation" },
+  { content: "Detect project config (check for git-workflow.sh)", status: "pending", activeForm: "Detecting project config" },
   { content: "DISCOVERY: Load worker context & explore codebase", status: "pending", activeForm: "Exploring codebase for context" },
   { content: "DISCOVERY: Document findings before implementation", status: "pending", activeForm: "Documenting discovery findings" },
   { content: "Select/validate issue", status: "pending", activeForm: "Selecting issue" },
   { content: "Set issue to In Progress on board", status: "pending", activeForm: "Setting issue to In Progress" },
   { content: "CHECKPOINT: Verify In Progress succeeded", status: "pending", activeForm: "Verifying In Progress status" },
-  { content: "Create worktree for issue", status: "pending", activeForm: "Creating worktree" },
+  { content: "BLOCKER: Create worktree (use git-workflow.sh start)", status: "pending", activeForm: "Creating worktree" },
+  { content: "CHECKPOINT: Verify in worktree (not main repo)", status: "pending", activeForm: "Verifying worktree isolation" },
   { content: "Diagnose issue (debugger)", status: "pending", activeForm: "Diagnosing issue" },
   { content: "Implement fix (code-writer)", status: "pending", activeForm: "Implementing fix" },
   { content: "Run unit tests (regression check)", status: "pending", activeForm: "Running unit tests for regressions" },
@@ -58,24 +59,31 @@ TodoWrite([
 
 Mark each todo as `in_progress` when starting and `completed` when done.
 
-## Phase 0: Validate Worktree Context (ALWAYS FIRST)
+## Phase 0: Validate Worktree Context (HARD BLOCKER - ALWAYS FIRST)
 
-**This phase runs BEFORE any other work. It ensures session isolation.**
+**🚨 THIS PHASE IS A HARD BLOCKER. YOU MUST ACTUALLY RUN THE VALIDATION COMMAND.**
+
+**DO NOT skip this. DO NOT assume. ACTUALLY RUN IT.**
 
 ```bash
-# Run the validation command
+# MANDATORY: Run the validation command FIRST
 scripts/git-workflow.sh validate
 ```
 
-**Expected outcomes:**
-- ✅ **Main repo on master** → Ready to create worktree (continue to Phase 1)
+**You MUST check the output and verify one of these states:**
+- ✅ **Main repo on master/main** → Ready to create worktree (continue to Phase 1)
 - ✅ **Already in a worktree** → Already isolated (continue to Phase 1)
-- 🚨 **Main repo on feature branch** → STOP! Fix before proceeding
+- 🚨 **Main repo on feature branch** → **STOP! DO NOT PROCEED!**
 
-**If validation fails (feature branch in main repo):**
-1. Run: `git checkout master`
+**If validation shows feature branch in main repo:**
+1. Run: `git checkout main` (or `git checkout master`)
 2. Re-run: `scripts/git-workflow.sh validate`
-3. Only proceed when validation passes
+3. **ONLY proceed when validation explicitly passes**
+
+**FAILURE TO VALIDATE = WORKFLOW VIOLATION**
+- Working on a feature branch in the main repo breaks parallel work
+- Other Claude sessions may conflict with your changes
+- This is the #1 cause of workflow failures
 
 ## Phase 1: Project Detection
 
@@ -258,28 +266,46 @@ echo "Issue #<NUMBER> current status: $CURRENT_STATUS"
 - Mark the "CHECKPOINT: Verify In Progress succeeded" todo as completed
 - Proceed to Phase 4
 
-## Phase 4: Create Worktree for Issue
+## Phase 4: Create Worktree for Issue (HARD BLOCKER)
 
-### If Project Has Worktree Script (`scripts/git-workflow.sh`) - PREFERRED
+**🚨 IF `scripts/git-workflow.sh` EXISTS, YOU MUST USE IT. NO EXCEPTIONS.**
 
+### Step 1: Check for Worktree Script
 ```bash
-# Generate branch name from issue
-BRANCH="fix/issue-<NUMBER>-<slug-from-title>"
-
-# Create the worktree (from main repo on master)
-scripts/git-workflow.sh start $BRANCH
-
-# CRITICAL: Change to worktree directory
-# The script outputs the path - you MUST cd to it
-cd /path/to/StreamlineSales-worktrees/$BRANCH
-
-# Verify you're in the worktree (should show "worktree" type)
-scripts/git-workflow.sh validate
+# Check if worktree script exists
+ls scripts/git-workflow.sh 2>/dev/null && echo "WORKTREE SCRIPT EXISTS - MUST USE IT"
 ```
 
-**Important:** The `start` command outputs the cd command you need to run. You MUST change to the worktree directory before proceeding. All subsequent work happens in the worktree, NOT the main repo.
+### Step 2a: If Worktree Script Exists (MANDATORY)
 
-### Standard Git (No Worktree Script) - Fallback
+**DO NOT use `git checkout -b`. USE THE SCRIPT.**
+
+```bash
+# Generate branch name from issue (feat/ for features, fix/ for bugs)
+BRANCH="feat/issue-<NUMBER>-<slug-from-title>"
+# or: BRANCH="fix/issue-<NUMBER>-<slug-from-title>"
+
+# Create the worktree using the script
+scripts/git-workflow.sh start $BRANCH
+
+# CRITICAL: The script outputs a worktree path - you MUST cd to it
+# Example output: "Worktree created at /path/to/project-worktrees/feat/issue-123-description"
+cd <WORKTREE_PATH_FROM_OUTPUT>
+
+# MANDATORY VERIFICATION: Confirm you're in the worktree
+scripts/git-workflow.sh validate
+# Must show: "worktree" type, NOT "main repo"
+```
+
+**VERIFICATION CHECKPOINT:**
+After running `scripts/git-workflow.sh validate`, confirm:
+- Output shows you are in a **worktree** (not main repo)
+- The branch matches your issue branch
+- **If verification fails, DO NOT PROCEED with implementation**
+
+### Step 2b: Standard Git (ONLY if no worktree script exists)
+
+**Only use this fallback if `scripts/git-workflow.sh` does NOT exist:**
 
 ```bash
 # Ensure on latest main/master
@@ -291,9 +317,10 @@ BRANCH="fix/issue-<NUMBER>-<slug-from-title>"
 git checkout -b $BRANCH
 
 echo "Created branch: $BRANCH"
+echo "WARNING: No worktree isolation - parallel sessions may conflict"
 ```
 
-**Note:** Standard git workflow doesn't provide session isolation. Multiple Claude sessions may conflict.
+**⚠️ Standard git workflow doesn't provide session isolation. Multiple Claude sessions WILL conflict.**
 
 ## Phase 5: Implementation
 
@@ -623,11 +650,13 @@ git branch -d $BRANCH                   # Only if merged
 
 Before reporting completion, verify:
 
-- [ ] Project config detected (board IDs, worktree script)
+- [ ] **BLOCKER: Phase 0 validation EXECUTED** (not just acknowledged)
+- [ ] Project config detected (board IDs, worktree script location)
 - [ ] Issue selected and details fetched
 - [ ] **GATE: Board status set to "In Progress"** (or user confirmed to skip)
 - [ ] **GATE: Checkpoint verification completed** (status confirmed)
-- [ ] Worktree/branch created for the fix
+- [ ] **BLOCKER: Worktree created using `git-workflow.sh start`** (if script exists)
+- [ ] **BLOCKER: Verified working in worktree** (ran validate after cd)
 - [ ] Root cause identified and documented
 - [ ] Fix implemented (minimal scope)
 - [ ] **Existing unit tests pass** (regression check)
@@ -647,20 +676,33 @@ The workflow adapts to available project tooling:
 | Missing Config | Behavior |
 |----------------|----------|
 | No board config | Skip board updates, warn user |
-| No worktree script | Use standard `git checkout -b` |
+| No worktree script | Use standard `git checkout -b` (ONLY if script truly doesn't exist) |
 | No gh CLI | Provide manual git/GitHub instructions |
+
+**⚠️ IMPORTANT:** "No worktree script" means `scripts/git-workflow.sh` literally does not exist.
+If the script EXISTS, you MUST use it. Do NOT fall back to `git checkout -b` by choice.
 
 ## Anti-Patterns to AVOID
 
+### 🚨 CRITICAL VIOLATIONS (Break parallel work)
+- **Using `git checkout -b` when `scripts/git-workflow.sh` exists** - This is the #1 workflow violation. If the script exists, USE IT.
+- **Not actually running Phase 0 validation** - You must EXECUTE `scripts/git-workflow.sh validate`, not just acknowledge it exists
 - **Skipping Phase 0 (validate)** - Always validate worktree context first to avoid session conflicts
 - **Working in main repo on a feature branch** - Creates conflicts with other Claude sessions
 - **Forgetting to cd to worktree** - After `start`, you MUST cd to the worktree directory
+- **Not verifying worktree after creation** - Run `scripts/git-workflow.sh validate` AFTER creating worktree to confirm isolation
+
+### Workflow Gate Violations
 - **Starting code work BEFORE setting "In Progress"** - The TRACK phase is a BLOCKING GATE
 - **Skipping the checkpoint verification** - Always verify the status update succeeded
 - **Proceeding after board update failure** without explicit user confirmation
+
+### Testing Violations
 - **Skipping unit test regression check** - Always run existing unit tests before PR
 - **Writing integration tests during /issue** - These belong in P5 issues for dedicated sessions
 - **Blocking on missing test infrastructure** - Document tests, don't block the fix
+
+### Other
 - **Skipping cleanup/handoff** - Always report completion and worktree status
 - Fixing multiple issues in one PR
 - Skipping smoke validation
