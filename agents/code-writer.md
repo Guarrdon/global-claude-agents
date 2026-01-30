@@ -57,7 +57,7 @@ You have access to:
 ## Git Workflow Awareness
 
 If you need to commit changes:
-1. Check if project has `scripts/git-workflow.sh`
+1. Check if project has `~/.local/bin/git-worktree-workflow`
 2. If yes, use worktree workflow
 3. Create feature branch, never work on main/master
 

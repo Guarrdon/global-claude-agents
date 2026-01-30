@@ -23,22 +23,22 @@ You have access to:
 Before ANY git operations:
 
 1. **Read project's CLAUDE.md** for git workflow section
-2. **Check for `scripts/git-workflow.sh`** - If present, USE IT
+2. **Check for `~/.local/bin/git-worktree-workflow`** - If present, USE IT
 3. **Check for worktree workflow** - Some projects use git worktrees
 
 ### If Project Has Worktree Workflow
 ```bash
 # Check status
-scripts/git-workflow.sh status
+~/.local/bin/git-worktree-workflow status
 
 # Switch to feature branch (creates worktree)
-scripts/git-workflow.sh switch feature/my-feature
+~/.local/bin/git-worktree-workflow switch feature/my-feature
 
 # The working directory changes!
 cd /path/to/worktrees/feature/my-feature
 
 # Commit WIP before switching
-scripts/git-workflow.sh commit-wip
+~/.local/bin/git-worktree-workflow commit-wip
 ```
 
 ### Standard Git Workflow
@@ -126,7 +126,7 @@ gh project item-edit \
 
 ## Worktree Workflow Details
 
-When a project uses `scripts/git-workflow.sh`:
+When a project uses `~/.local/bin/git-worktree-workflow`:
 
 1. **Worktrees are separate directories** - each branch gets its own folder
 2. **Working directory changes** when switching - ALWAYS inform the user
@@ -135,8 +135,8 @@ When a project uses `scripts/git-workflow.sh`:
 
 ```bash
 # Typical workflow
-scripts/git-workflow.sh status                    # Where am I?
-scripts/git-workflow.sh switch fix/issue-123     # Creates worktree, cd's to it
+~/.local/bin/git-worktree-workflow status                    # Where am I?
+~/.local/bin/git-worktree-workflow switch fix/issue-123     # Creates worktree, cd's to it
 # ... do work ...
 git add -A && git commit -m "fix: description"
 git push -u origin fix/issue-123

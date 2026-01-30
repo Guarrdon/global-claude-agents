@@ -15,7 +15,7 @@ $ARGUMENTS
 Before ANY git operations, you MUST:
 
 1. **Read project's CLAUDE.md** for git workflow section
-2. **Check for `scripts/git-workflow.sh`** - If present, USE IT
+2. **Check for `~/.local/bin/git-worktree-workflow`** - If present, USE IT
 3. **Check for worktree workflow** - Some projects use git worktrees
 
 ## Workflow Detection
@@ -23,16 +23,16 @@ Before ANY git operations, you MUST:
 ### If Project Has Worktree Workflow
 ```bash
 # Check status
-scripts/git-workflow.sh status
+~/.local/bin/git-worktree-workflow status
 
 # Switch to/create feature branch (creates worktree)
-scripts/git-workflow.sh switch feature/my-feature
+~/.local/bin/git-worktree-workflow switch feature/my-feature
 
 # The working directory changes!
 # Inform user of directory change
 
 # Commit WIP before switching contexts
-scripts/git-workflow.sh commit-wip
+~/.local/bin/git-worktree-workflow commit-wip
 ```
 
 ### Standard Git Workflow
@@ -70,7 +70,7 @@ Task(
 
     ## Project Git Workflow
     Worktree: <yes/no - from CLAUDE.md>
-    Script: <scripts/git-workflow.sh if present>
+    Script: <~/.local/bin/git-worktree-workflow if present>
     Current branch: <from git status>
 
     ## Branch Naming Convention

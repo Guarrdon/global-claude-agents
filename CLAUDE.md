@@ -42,7 +42,7 @@ Use these commands to trigger specialized workflows. Each spawns worker agents w
 | Feature | Config Key | Used By |
 |---------|------------|---------|
 | GitHub Project Board | `github_project` | `/issue` sets In Progress/Done |
-| Git Worktrees | `scripts/git-workflow.sh` | `/issue`, `/git` use worktrees |
+| Git Worktrees | `~/.local/bin/git-worktree-workflow` | `/issue`, `/git` use worktrees |
 
 These features are optional - workflows adapt when config is missing.
 

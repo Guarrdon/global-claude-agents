@@ -47,7 +47,7 @@ TodoWrite([
 
 ```bash
 # Run the validation command
-scripts/git-workflow.sh validate
+~/.local/bin/git-worktree-workflow validate
 ```
 
 **Expected outcomes:**
@@ -125,13 +125,13 @@ BRANCH="test/issue-<NUMBER>-<description>"  # For P5 issues
 BRANCH="test/<target-description>"          # For ad-hoc
 
 # Create worktree
-scripts/git-workflow.sh start $BRANCH
+~/.local/bin/git-worktree-workflow start $BRANCH
 
 # CRITICAL: Change to worktree directory
 cd /path/to/worktrees/$BRANCH
 
 # Verify
-scripts/git-workflow.sh validate
+~/.local/bin/git-worktree-workflow validate
 ```
 
 **Without worktree script (fallback):**
@@ -365,10 +365,10 @@ After PR is merged (or if abandoning work):
 
 ```bash
 # Return to main repo
-scripts/git-workflow.sh main
+~/.local/bin/git-worktree-workflow main
 
 # Clean up merged worktrees
-scripts/git-workflow.sh cleanup
+~/.local/bin/git-worktree-workflow cleanup
 ```
 
 **Without worktree script:**

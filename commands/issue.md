@@ -15,20 +15,17 @@ $ARGUMENTS
 ```
 0. VALIDATE  -> Validate git worktree context (ALWAYS FIRST)
 1. SETUP     -> Detect project config, select/validate issue
-2. TRACK     -> Set issue to "In Progress" on project board
-   ├── BLOCKING: Must succeed before proceeding
-   └── VERIFY: Confirm status update before continuing
-3. WORKTREE  -> Create isolated worktree for issue branch
-4. IMPLEMENT -> Spawn dev workers for the fix
-5. TEST      -> Run unit tests, add new unit tests
-6. PR        -> Create pull request with issue reference
-7. COMPLETE  -> Update board to "Done" (after PR merged)
-8. CLEANUP   -> Report completion, return to main repo
+2. TRACK     -> Set issue to "In Progress" (best effort, non-blocking)
+3. DISCOVERY -> Explore codebase for context
+4. WORKTREE  -> Create isolated worktree for issue branch
+5. IMPLEMENT -> Diagnose and fix the issue
+6. TEST      -> Run unit tests, add new unit tests
+7. PR        -> Create pull request with issue reference
+8. CLEANUP   -> Report completion
 ```
 
-**CRITICAL WORKFLOW GATES:**
+**Key Phase:**
 - Phase 0 (VALIDATE) ensures session isolation - prevents conflicts with other Claude sessions
-- Phase 2 (TRACK) prevents duplicate work by signaling issue is being worked on
 
 ## Required: Track Progress with TodoWrite
 
@@ -36,24 +33,20 @@ $ARGUMENTS
 
 ```
 TodoWrite([
-  { content: "BLOCKER: Run scripts/git-workflow.sh validate", status: "pending", activeForm: "Running worktree validation" },
-  { content: "Detect project config (check for git-workflow.sh)", status: "pending", activeForm: "Detecting project config" },
-  { content: "DISCOVERY: Load worker context & explore codebase", status: "pending", activeForm: "Exploring codebase for context" },
-  { content: "DISCOVERY: Document findings before implementation", status: "pending", activeForm: "Documenting discovery findings" },
+  { content: "Validate worktree context", status: "pending", activeForm: "Running worktree validation" },
+  { content: "Detect project config", status: "pending", activeForm: "Detecting project config" },
   { content: "Select/validate issue", status: "pending", activeForm: "Selecting issue" },
-  { content: "Set issue to In Progress on board", status: "pending", activeForm: "Setting issue to In Progress" },
-  { content: "CHECKPOINT: Verify In Progress succeeded", status: "pending", activeForm: "Verifying In Progress status" },
-  { content: "BLOCKER: Create worktree (use git-workflow.sh start)", status: "pending", activeForm: "Creating worktree" },
-  { content: "CHECKPOINT: Verify in worktree (not main repo)", status: "pending", activeForm: "Verifying worktree isolation" },
-  { content: "Diagnose issue (debugger)", status: "pending", activeForm: "Diagnosing issue" },
-  { content: "Implement fix (code-writer)", status: "pending", activeForm: "Implementing fix" },
-  { content: "Run unit tests (regression check)", status: "pending", activeForm: "Running unit tests for regressions" },
-  { content: "Add unit tests for new functionality", status: "pending", activeForm: "Adding unit tests" },
+  { content: "Set issue to In Progress (best effort)", status: "pending", activeForm: "Updating board status" },
+  { content: "DISCOVERY: Explore codebase for context", status: "pending", activeForm: "Exploring codebase" },
+  { content: "Create worktree for issue branch", status: "pending", activeForm: "Creating worktree" },
+  { content: "Verify in worktree", status: "pending", activeForm: "Verifying worktree" },
+  { content: "Diagnose issue", status: "pending", activeForm: "Diagnosing issue" },
+  { content: "Implement fix", status: "pending", activeForm: "Implementing fix" },
+  { content: "Run unit tests", status: "pending", activeForm: "Running unit tests" },
+  { content: "Add unit tests for fix", status: "pending", activeForm: "Adding unit tests" },
   { content: "Smoke validation", status: "pending", activeForm: "Validating fix" },
-  { content: "Create P5 test issue (integration/system)", status: "pending", activeForm: "Creating test planning issue" },
   { content: "Create pull request", status: "pending", activeForm: "Creating pull request" },
-  { content: "Report PR URL and next steps", status: "pending", activeForm: "Reporting completion" },
-  { content: "Cleanup: return to main repo", status: "pending", activeForm: "Cleaning up worktree" }
+  { content: "Report completion", status: "pending", activeForm: "Reporting completion" }
 ])
 ```
 
@@ -67,7 +60,7 @@ Mark each todo as `in_progress` when starting and `completed` when done.
 
 ```bash
 # MANDATORY: Run the validation command FIRST
-scripts/git-workflow.sh validate
+~/.local/bin/git-worktree-workflow validate
 ```
 
 **You MUST check the output and verify one of these states:**
@@ -77,7 +70,7 @@ scripts/git-workflow.sh validate
 
 **If validation shows feature branch in main repo:**
 1. Run: `git checkout main` (or `git checkout master`)
-2. Re-run: `scripts/git-workflow.sh validate`
+2. Re-run: `~/.local/bin/git-worktree-workflow validate`
 3. **ONLY proceed when validation explicitly passes**
 
 **FAILURE TO VALIDATE = WORKFLOW VIOLATION**
@@ -94,7 +87,7 @@ scripts/git-workflow.sh validate
 cat CLAUDE.md 2>/dev/null | head -200
 
 # 2. Check for worktree script
-ls scripts/git-workflow.sh 2>/dev/null
+ls ~/.local/bin/git-worktree-workflow 2>/dev/null
 
 # 3. Extract from CLAUDE.md (if present):
 #    - github_project.project_id
@@ -203,77 +196,50 @@ If issue number provided (e.g., `/issue #123` or `/issue 123`):
 gh issue view <NUMBER> --json number,title,body,labels
 ```
 
-## Phase 3: Set "In Progress" on Project Board (BLOCKING GATE)
+## Phase 3: Set "In Progress" on Project Board (Best Effort)
 
-**CRITICAL: This phase is a BLOCKING GATE. No code work may begin until this completes successfully.**
+**Board tracking is best-effort - attempt to update but continue if it fails.**
 
 If project board config exists in CLAUDE.md:
 
 ```bash
 # 1. Get the item ID for this issue on the project board
-ITEM_ID=$(gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json | \
-  jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id')
+ITEM_ID=$(gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json 2>/dev/null | \
+  jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id' 2>/dev/null)
 
-# 2. Verify we found the item
-if [ -z "$ITEM_ID" ]; then
-  echo "ERROR: Could not find issue #<NUMBER> on project board"
-  echo "BLOCKING: Cannot proceed until issue is on the board"
-  exit 1
+# 2. If found, update status to "In Progress"
+if [ -n "$ITEM_ID" ]; then
+  gh project item-edit \
+    --project-id <PROJECT_ID> \
+    --id $ITEM_ID \
+    --field-id <STATUS_FIELD_ID> \
+    --single-select-option-id <IN_PROGRESS_OPTION_ID> 2>/dev/null && \
+  echo "✓ Issue #<NUMBER> marked as In Progress on project board" || \
+  echo "⚠ Board update failed - continuing anyway"
+else
+  echo "⚠ Issue not found on project board - continuing anyway"
 fi
-
-# 3. Update status to "In Progress"
-gh project item-edit \
-  --project-id <PROJECT_ID> \
-  --id $ITEM_ID \
-  --field-id <STATUS_FIELD_ID> \
-  --single-select-option-id <IN_PROGRESS_OPTION_ID>
-
-echo "Issue #<NUMBER> marked as In Progress on project board"
 ```
 
-### Error Handling (REQUIRED)
+### Handling Failures
 
-If the board update fails:
-1. **DO NOT proceed** to Phase 4 or any subsequent phase
-2. **Report the error** to the user with the specific failure message
-3. **Ask the user** how to proceed:
-   - Retry the board update
-   - Manually update the board and confirm
-   - Skip board tracking (user accepts risk of duplicate work)
+Board update failures should NOT block the workflow:
+- Log a warning message
+- Continue to Phase 4 immediately
+- Board can be updated manually later if needed
 
 **If no project board config:**
-- Inform user: "No project board config found in CLAUDE.md - skipping board status update"
-- **Ask user to confirm** they want to proceed without board tracking
-- Only continue after user explicitly confirms
-
-## Phase 3.5: CHECKPOINT - Verify "In Progress" Status
-
-**This checkpoint is MANDATORY. Do not skip.**
-
-Before proceeding to Phase 4, verify the status was set:
-
-```bash
-# Verify the status update took effect
-CURRENT_STATUS=$(gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json | \
-  jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .status')
-
-echo "Issue #<NUMBER> current status: $CURRENT_STATUS"
-
-# Confirm it shows "In Progress" (or your configured status name)
-```
-
-**Only after verification succeeds:**
-- Mark the "CHECKPOINT: Verify In Progress succeeded" todo as completed
-- Proceed to Phase 4
+- Log: "No project board config - skipping board tracking"
+- Continue immediately (no user confirmation needed)
 
 ## Phase 4: Create Worktree for Issue (HARD BLOCKER)
 
-**🚨 IF `scripts/git-workflow.sh` EXISTS, YOU MUST USE IT. NO EXCEPTIONS.**
+**🚨 IF `~/.local/bin/git-worktree-workflow` EXISTS, YOU MUST USE IT. NO EXCEPTIONS.**
 
 ### Step 1: Check for Worktree Script
 ```bash
 # Check if worktree script exists
-ls scripts/git-workflow.sh 2>/dev/null && echo "WORKTREE SCRIPT EXISTS - MUST USE IT"
+ls ~/.local/bin/git-worktree-workflow 2>/dev/null && echo "WORKTREE SCRIPT EXISTS - MUST USE IT"
 ```
 
 ### Step 2a: If Worktree Script Exists (MANDATORY)
@@ -286,26 +252,26 @@ BRANCH="feat/issue-<NUMBER>-<slug-from-title>"
 # or: BRANCH="fix/issue-<NUMBER>-<slug-from-title>"
 
 # Create the worktree using the script
-scripts/git-workflow.sh start $BRANCH
+~/.local/bin/git-worktree-workflow start $BRANCH
 
 # CRITICAL: The script outputs a worktree path - you MUST cd to it
 # Example output: "Worktree created at /path/to/project-worktrees/feat/issue-123-description"
 cd <WORKTREE_PATH_FROM_OUTPUT>
 
 # MANDATORY VERIFICATION: Confirm you're in the worktree
-scripts/git-workflow.sh validate
+~/.local/bin/git-worktree-workflow validate
 # Must show: "worktree" type, NOT "main repo"
 ```
 
 **VERIFICATION CHECKPOINT:**
-After running `scripts/git-workflow.sh validate`, confirm:
+After running `~/.local/bin/git-worktree-workflow validate`, confirm:
 - Output shows you are in a **worktree** (not main repo)
 - The branch matches your issue branch
 - **If verification fails, DO NOT PROCEED with implementation**
 
 ### Step 2b: Standard Git (ONLY if no worktree script exists)
 
-**Only use this fallback if `scripts/git-workflow.sh` does NOT exist:**
+**Only use this fallback if `~/.local/bin/git-worktree-workflow` does NOT exist:**
 
 ```bash
 # Ensure on latest main/master
@@ -602,7 +568,7 @@ After PR is created, prepare for session end:
 
 ### Worktree Status
 Currently in: /path/to/worktree/$BRANCH
-To cleanup after merge: `scripts/git-workflow.sh cleanup`
+To cleanup after merge: `~/.local/bin/git-worktree-workflow cleanup`
 ```
 
 ### Return to Main Repo (Optional)
@@ -611,10 +577,10 @@ If continuing with other work in this session:
 
 ```bash
 # Return to main repo on master
-scripts/git-workflow.sh main
+~/.local/bin/git-worktree-workflow main
 
 # Verify back in main repo
-scripts/git-workflow.sh validate
+~/.local/bin/git-worktree-workflow validate
 ```
 
 ### Worktree Cleanup (After PR Merge)
@@ -623,7 +589,7 @@ Worktrees should be cleaned up after their PRs are merged:
 
 ```bash
 # From main repo, clean up merged worktrees
-scripts/git-workflow.sh cleanup
+~/.local/bin/git-worktree-workflow cleanup
 ```
 
 **Note:** Don't cleanup worktrees with unmerged PRs - the work would be lost.
@@ -650,24 +616,21 @@ git branch -d $BRANCH                   # Only if merged
 
 Before reporting completion, verify:
 
-- [ ] **BLOCKER: Phase 0 validation EXECUTED** (not just acknowledged)
-- [ ] Project config detected (board IDs, worktree script location)
+- [ ] Worktree context validated (Phase 0)
+- [ ] Project config detected
 - [ ] Issue selected and details fetched
-- [ ] **GATE: Board status set to "In Progress"** (or user confirmed to skip)
-- [ ] **GATE: Checkpoint verification completed** (status confirmed)
-- [ ] **BLOCKER: Worktree created using `git-workflow.sh start`** (if script exists)
-- [ ] **BLOCKER: Verified working in worktree** (ran validate after cd)
+- [ ] Board status update attempted (best effort - ok if skipped)
+- [ ] Discovery completed (explored related code)
+- [ ] Worktree created using `~/.local/bin/git-worktree-workflow start`
+- [ ] Verified working in worktree (ran validate)
 - [ ] Root cause identified and documented
 - [ ] Fix implemented (minimal scope)
-- [ ] **Existing unit tests pass** (regression check)
-- [ ] **Unit tests added** for new functionality (or documented why skipped)
-- [ ] Smoke validation passed (fix verified working)
+- [ ] Unit tests pass (regression check)
+- [ ] Unit tests added for new functionality
+- [ ] Smoke validation passed
 - [ ] Build and type check passing
-- [ ] P5 test issue created (if integration/system tests needed)
 - [ ] PR created with `Fixes #<NUMBER>`
 - [ ] PR URL reported to user
-- [ ] Completion summary provided (PR URL, next steps, worktree status)
-- [ ] User informed about cleanup (after PR merge)
 
 ## Fallback Behavior
 
@@ -679,23 +642,23 @@ The workflow adapts to available project tooling:
 | No worktree script | Use standard `git checkout -b` (ONLY if script truly doesn't exist) |
 | No gh CLI | Provide manual git/GitHub instructions |
 
-**⚠️ IMPORTANT:** "No worktree script" means `scripts/git-workflow.sh` literally does not exist.
+**⚠️ IMPORTANT:** "No worktree script" means `~/.local/bin/git-worktree-workflow` literally does not exist.
 If the script EXISTS, you MUST use it. Do NOT fall back to `git checkout -b` by choice.
 
 ## Anti-Patterns to AVOID
 
 ### 🚨 CRITICAL VIOLATIONS (Break parallel work)
-- **Using `git checkout -b` when `scripts/git-workflow.sh` exists** - This is the #1 workflow violation. If the script exists, USE IT.
-- **Not actually running Phase 0 validation** - You must EXECUTE `scripts/git-workflow.sh validate`, not just acknowledge it exists
+- **Using `git checkout -b` when `~/.local/bin/git-worktree-workflow` exists** - This is the #1 workflow violation. If the script exists, USE IT.
+- **Not actually running Phase 0 validation** - You must EXECUTE `~/.local/bin/git-worktree-workflow validate`, not just acknowledge it exists
 - **Skipping Phase 0 (validate)** - Always validate worktree context first to avoid session conflicts
 - **Working in main repo on a feature branch** - Creates conflicts with other Claude sessions
 - **Forgetting to cd to worktree** - After `start`, you MUST cd to the worktree directory
-- **Not verifying worktree after creation** - Run `scripts/git-workflow.sh validate` AFTER creating worktree to confirm isolation
+- **Not verifying worktree after creation** - Run `~/.local/bin/git-worktree-workflow validate` AFTER creating worktree to confirm isolation
 
-### Workflow Gate Violations
-- **Starting code work BEFORE setting "In Progress"** - The TRACK phase is a BLOCKING GATE
-- **Skipping the checkpoint verification** - Always verify the status update succeeded
-- **Proceeding after board update failure** without explicit user confirmation
+### Board Tracking (Best Effort)
+- Board updates are best-effort, not blocking gates
+- If board update fails, log warning and continue
+- Manual board updates can be done later if needed
 
 ### Testing Violations
 - **Skipping unit test regression check** - Always run existing unit tests before PR

@@ -164,14 +164,12 @@ Deep/UX:   ux-auditor → functional-auditor → doc-writer → git-manager
 
 **Issue Resolution workflow** (`/issue`):
 ```
-0. Validate → git-worktree-workflow validate (ALWAYS FIRST)
-1. Detect   → Read project CLAUDE.md for board config
+1. Detect   → Read project CLAUDE.md for board/worktree config
 2. Track    → Set issue to "In Progress" on project board
-3. Branch   → git-worktree-workflow start <branch> && cd <path>
-4. Verify   → git-worktree-workflow validate (confirm in worktree)
-5. Fix      → debugger → code-writer → test-automator
-6. PR       → Create PR with "Fixes #<number>"
-7. Complete → Update board to "Done" (after merge)
+3. Branch   → Create worktree (or git branch if no worktree script)
+4. Fix      → debugger → code-writer → test-automator
+5. PR       → Create PR with "Fixes #<number>"
+6. Complete → Update board to "Done" (after merge)
 ```
 
 ---
@@ -210,52 +208,30 @@ If no board config exists, workflows skip board updates and warn the user.
 
 ---
 
-## Worktree Integration (CRITICAL)
+## Worktree Integration
 
-**Always use worktrees for feature development to enable parallel work.**
+Git worktrees provide isolated feature work. The global worktree script is:
 
-The global `git-worktree-workflow` command (installed to `~/.local/bin`) provides safe parallel development. Never work on feature branches in the main repo - this causes conflicts between Claude sessions.
+**Global script**: `~/.local/bin/git-worktree-workflow`
 
-### Workflow Commands
-
+**Usage:**
 ```bash
-# 1. ALWAYS validate before starting work
-git-worktree-workflow validate
-
-# 2. Create worktree for a feature branch
-git-worktree-workflow start feat/issue-123-description
-
-# 3. IMPORTANT: cd to the worktree (command outputs the path)
-cd /path/to/project-worktrees/feat-issue-123-description
-
-# 4. Verify you're in the worktree
-git-worktree-workflow validate
-
-# 5. After PR is merged, cleanup
-git-worktree-workflow cleanup
+git-worktree-workflow status          # Check current state
+git-worktree-workflow start <branch>  # Create worktree for branch
+git-worktree-workflow validate        # Verify worktree context
+git-worktree-workflow main            # Return to main repo
+git-worktree-workflow cleanup         # Remove merged worktrees
 ```
 
-### Key Rules
+**Key behavior:**
+- Working directory CHANGES when switching worktrees
+- Always inform user of directory changes
+- Always validate worktree context before starting work
 
-1. **Never work on feature branches in the main repo** - always use worktrees
-2. **Always run `validate` first** - it catches violations before they cause problems
-3. **Working directory CHANGES** when using worktrees - inform the user
-4. **Main repo should always be on main/master** - ready to create new worktrees
-
-### Validation States
-
-| State | Action |
-|-------|--------|
-| Main repo on main | Ready to create worktree |
-| In a worktree | Good - session is isolated |
-| Main repo on feature branch | **VIOLATION** - stash, checkout main, create worktree |
-
-### Fallback (if git-worktree-workflow not available)
-
+**If worktree script unavailable, fall back to standard git (from latest main):**
 ```bash
 git fetch origin && git checkout main && git pull origin main
-git worktree add ../project-worktrees/branch-name -b branch-name
-cd ../project-worktrees/branch-name
+git checkout -b <branch>
 ```
 
 ---
@@ -264,20 +240,9 @@ cd ../project-worktrees/branch-name
 
 **All code changes MUST go through Pull Requests.**
 
-### Creating Feature Branches (Preferred: Worktrees)
+### Creating Feature Branches
 
-**Use `git-worktree-workflow` for isolated parallel development:**
-
-```bash
-# Validate, create worktree, and cd to it
-git-worktree-workflow validate
-git-worktree-workflow start <prefix>/issue-<number>-<slug>
-cd <worktree-path>  # Path shown in output
-```
-
-### Creating Feature Branches (Fallback: Standard Git)
-
-Only use this if worktrees are not available:
+**ALWAYS branch from latest origin/main to avoid merge conflicts:**
 
 ```bash
 # 1. Fetch latest from remote
