@@ -153,6 +153,53 @@ for item in "settings.json" "statusline.sh"; do
 done
 [ -f "$TARGET_DIR/statusline.sh" ] && chmod +x "$TARGET_DIR/statusline.sh"
 
+# CLI Tools (install to ~/.local/bin)
+if [ -d "$SCRIPT_DIR/bin" ]; then
+    echo -e "\n${BLUE}CLI Tools:${NC}"
+    LOCAL_BIN="$HOME/.local/bin"
+
+    # Ensure ~/.local/bin exists and is in PATH
+    if [ ! -d "$LOCAL_BIN" ]; then
+        echo -e "  ${YELLOW}Creating $LOCAL_BIN${NC}"
+        mkdir -p "$LOCAL_BIN"
+    fi
+
+    # Check if ~/.local/bin is in PATH
+    if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
+        echo -e "  ${YELLOW}!${NC} $LOCAL_BIN is not in your PATH"
+        echo "    Add to your shell profile (~/.bashrc or ~/.zshrc):"
+        echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+    fi
+
+    # Install each script from bin/
+    for script in "$SCRIPT_DIR/bin/"*; do
+        if [ -f "$script" ]; then
+            script_name=$(basename "$script")
+            dest="$LOCAL_BIN/$script_name"
+
+            if [ -f "$dest" ]; then
+                if diff -q "$script" "$dest" >/dev/null 2>&1; then
+                    echo -e "  ${GREEN}✓${NC} $script_name (up to date)"
+                else
+                    echo -e "  ${YELLOW}?${NC} $script_name exists. Overwrite? [y/N]"
+                    read -p "    > " OW
+                    if [ "$OW" = "y" ] || [ "$OW" = "Y" ]; then
+                        cp "$script" "$dest"
+                        chmod +x "$dest"
+                        echo -e "    ${GREEN}Updated${NC}"
+                    else
+                        echo -e "    ${YELLOW}Skipped${NC}"
+                    fi
+                fi
+            else
+                cp "$script" "$dest"
+                chmod +x "$dest"
+                echo -e "  ${GREEN}+${NC} $script_name (installed to $LOCAL_BIN)"
+            fi
+        fi
+    done
+fi
+
 # Summary
 echo -e "\n${GREEN}"
 echo "╔════════════════════════════════════════════════╗"
@@ -162,4 +209,8 @@ echo -e "${NC}"
 echo -e "${YELLOW}How it works:${NC}"
 echo "  CLAUDE.md references CLAUDE.agents.md"
 echo "  Claude reads both files for complete instructions"
+echo ""
+echo -e "${YELLOW}CLI Tools installed:${NC}"
+echo "  git-worktree-workflow - Safe parallel development with worktrees"
+echo "    Run 'git-worktree-workflow --help' for usage"
 echo -e "\n${GREEN}Happy coding with Claude!${NC}"

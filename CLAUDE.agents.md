@@ -164,12 +164,14 @@ Deep/UX:   ux-auditor → functional-auditor → doc-writer → git-manager
 
 **Issue Resolution workflow** (`/issue`):
 ```
-1. Detect   → Read project CLAUDE.md for board/worktree config
+0. Validate → git-worktree-workflow validate (ALWAYS FIRST)
+1. Detect   → Read project CLAUDE.md for board config
 2. Track    → Set issue to "In Progress" on project board
-3. Branch   → Create worktree (or git branch if no worktree script)
-4. Fix      → debugger → code-writer → test-automator
-5. PR       → Create PR with "Fixes #<number>"
-6. Complete → Update board to "Done" (after merge)
+3. Branch   → git-worktree-workflow start <branch> && cd <path>
+4. Verify   → git-worktree-workflow validate (confirm in worktree)
+5. Fix      → debugger → code-writer → test-automator
+6. PR       → Create PR with "Fixes #<number>"
+7. Complete → Update board to "Done" (after merge)
 ```
 
 ---
@@ -208,29 +210,52 @@ If no board config exists, workflows skip board updates and warn the user.
 
 ---
 
-## Worktree Integration
+## Worktree Integration (CRITICAL)
 
-Projects can use git worktrees for isolated feature work. Check for:
+**Always use worktrees for feature development to enable parallel work.**
 
-1. **Worktree script**: `scripts/git-workflow.sh`
-2. **Worktree config** in project CLAUDE.md
+The global `git-worktree-workflow` command (installed to `~/.local/bin`) provides safe parallel development. Never work on feature branches in the main repo - this causes conflicts between Claude sessions.
 
-**If worktree script exists:**
+### Workflow Commands
+
 ```bash
-scripts/git-workflow.sh status          # Check current state
-scripts/git-workflow.sh switch <branch> # Create/switch worktree
-scripts/git-workflow.sh commit-wip      # Save WIP before switching
+# 1. ALWAYS validate before starting work
+git-worktree-workflow validate
+
+# 2. Create worktree for a feature branch
+git-worktree-workflow start feat/issue-123-description
+
+# 3. IMPORTANT: cd to the worktree (command outputs the path)
+cd /path/to/project-worktrees/feat-issue-123-description
+
+# 4. Verify you're in the worktree
+git-worktree-workflow validate
+
+# 5. After PR is merged, cleanup
+git-worktree-workflow cleanup
 ```
 
-**Key behavior:**
-- Working directory CHANGES when switching worktrees
-- Always inform user of directory changes
-- Auto-commit WIP before switching contexts
+### Key Rules
 
-**If no worktree script, fall back to standard git (from latest main):**
+1. **Never work on feature branches in the main repo** - always use worktrees
+2. **Always run `validate` first** - it catches violations before they cause problems
+3. **Working directory CHANGES** when using worktrees - inform the user
+4. **Main repo should always be on main/master** - ready to create new worktrees
+
+### Validation States
+
+| State | Action |
+|-------|--------|
+| Main repo on main | Ready to create worktree |
+| In a worktree | Good - session is isolated |
+| Main repo on feature branch | **VIOLATION** - stash, checkout main, create worktree |
+
+### Fallback (if git-worktree-workflow not available)
+
 ```bash
 git fetch origin && git checkout main && git pull origin main
-git checkout -b <branch>
+git worktree add ../project-worktrees/branch-name -b branch-name
+cd ../project-worktrees/branch-name
 ```
 
 ---
@@ -239,9 +264,20 @@ git checkout -b <branch>
 
 **All code changes MUST go through Pull Requests.**
 
-### Creating Feature Branches
+### Creating Feature Branches (Preferred: Worktrees)
 
-**ALWAYS branch from latest origin/main to avoid merge conflicts:**
+**Use `git-worktree-workflow` for isolated parallel development:**
+
+```bash
+# Validate, create worktree, and cd to it
+git-worktree-workflow validate
+git-worktree-workflow start <prefix>/issue-<number>-<slug>
+cd <worktree-path>  # Path shown in output
+```
+
+### Creating Feature Branches (Fallback: Standard Git)
+
+Only use this if worktrees are not available:
 
 ```bash
 # 1. Fetch latest from remote
