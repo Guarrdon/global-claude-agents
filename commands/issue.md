@@ -203,23 +203,36 @@ gh issue view <NUMBER> --json number,title,body,labels
 If project board config exists in CLAUDE.md:
 
 ```bash
-# 1. Get the item ID for this issue on the project board
-ITEM_ID=$(gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json 2>/dev/null | \
-  jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id' 2>/dev/null)
+# Configuration from CLAUDE.md (substitute actual values)
+PROJECT_ID="<PROJECT_ID>"           # e.g., PVT_kwHOAP6mx84BNtCx
+PROJECT_NUM=<PROJECT_NUMBER>        # e.g., 2
+STATUS_FIELD_ID="<STATUS_FIELD_ID>" # e.g., PVTSSF_lAHOAP6mx84BNtCxzg8nxFg
+IN_PROGRESS_OPTION_ID="<OPTION_ID>" # e.g., 47fc9ee4
+OWNER="<OWNER>"                     # e.g., Guarrdon
+REPO="<REPO>"                       # e.g., trueorc
+ISSUE_NUM=<ISSUE_NUMBER>
 
-# 2. If found, update status to "In Progress"
+# Get project item ID directly from the issue using GraphQL (scalable - works with any board size)
+ITEM_ID=$(gh api graphql -f query="query { repository(owner: \"${OWNER}\", name: \"${REPO}\") { issue(number: ${ISSUE_NUM}) { projectItems(first: 10) { nodes { id project { number } } } } } }" --jq ".data.repository.issue.projectItems.nodes[] | select(.project.number == ${PROJECT_NUM}) | .id" 2>/dev/null)
+
+# If found, update status to "In Progress"
 if [ -n "$ITEM_ID" ]; then
   gh project item-edit \
-    --project-id <PROJECT_ID> \
-    --id $ITEM_ID \
-    --field-id <STATUS_FIELD_ID> \
-    --single-select-option-id <IN_PROGRESS_OPTION_ID> 2>/dev/null && \
-  echo "✓ Issue #<NUMBER> marked as In Progress on project board" || \
+    --project-id "$PROJECT_ID" \
+    --id "$ITEM_ID" \
+    --field-id "$STATUS_FIELD_ID" \
+    --single-select-option-id "$IN_PROGRESS_OPTION_ID" 2>/dev/null && \
+  echo "✓ Issue #${ISSUE_NUM} marked as In Progress on project board" || \
   echo "⚠ Board update failed - continuing anyway"
 else
-  echo "⚠ Issue not found on project board - continuing anyway"
+  echo "⚠ Issue #${ISSUE_NUM} not found on project board - continuing anyway"
 fi
 ```
+
+**Why GraphQL instead of item-list?**
+- `gh project item-list` has a default limit of 30 items
+- Projects with large backlogs would miss newer issues
+- GraphQL queries the issue directly - O(1) regardless of board size
 
 ### Handling Failures
 
@@ -527,23 +540,36 @@ EOF
 
 **Report PR URL to user.**
 
-## Phase 7: Update Board to "Done"
+## Phase 7: Update Board to "In Review"
 
-The board is typically updated to "Done" after the PR is merged.
-
-**Option A: Automatic** - If using `Fixes #<NUMBER>` in PR, GitHub auto-closes the issue on merge.
-
-**Option B: Manual** - User runs `/issue done #123` after merge:
+After PR is created, update the board status to "In Review":
 
 ```bash
-gh project item-edit \
-  --project-id <PROJECT_ID> \
-  --id <ITEM_ID> \
-  --field-id <STATUS_FIELD_ID> \
-  --single-select-option-id <DONE_OPTION_ID>
+# Configuration from CLAUDE.md (substitute actual values)
+PROJECT_ID="<PROJECT_ID>"
+PROJECT_NUM=<PROJECT_NUMBER>
+STATUS_FIELD_ID="<STATUS_FIELD_ID>"
+IN_REVIEW_OPTION_ID="<IN_REVIEW_OPTION_ID>"
+OWNER="<OWNER>"
+REPO="<REPO>"
+ISSUE_NUM=<ISSUE_NUMBER>
 
-echo "Issue #<NUMBER> marked as Done on project board"
+# Get project item ID using GraphQL
+ITEM_ID=$(gh api graphql -f query="query { repository(owner: \"${OWNER}\", name: \"${REPO}\") { issue(number: ${ISSUE_NUM}) { projectItems(first: 10) { nodes { id project { number } } } } } }" --jq ".data.repository.issue.projectItems.nodes[] | select(.project.number == ${PROJECT_NUM}) | .id" 2>/dev/null)
+
+if [ -n "$ITEM_ID" ]; then
+  gh project item-edit \
+    --project-id "$PROJECT_ID" \
+    --id "$ITEM_ID" \
+    --field-id "$STATUS_FIELD_ID" \
+    --single-select-option-id "$IN_REVIEW_OPTION_ID" && \
+  echo "✓ Issue #${ISSUE_NUM} marked as In Review on project board"
+else
+  echo "⚠ Issue #${ISSUE_NUM} not found on project board"
+fi
 ```
+
+**"Done" is automatic:** When the PR merges with `Fixes #<NUMBER>`, GitHub automatically closes the issue and transitions it to "Done" on the project board.
 
 ## Phase 8: Cleanup & Handoff
 
@@ -609,8 +635,9 @@ git branch -d $BRANCH                   # Only if merged
 | `/issue` | Pick highest priority open issue and resolve it |
 | `/issue #123` | Resolve specific issue number 123 |
 | `/issue 123` | Same as above (# is optional) |
-| `/issue done #123` | Mark issue as Done on board (run after PR merge) |
 | `/issue status` | Show current git/worktree status |
+
+**Note:** "Done" status is automatic - when PR merges with `Fixes #N`, GitHub closes the issue and updates the board.
 
 ## Execution Checklist
 
