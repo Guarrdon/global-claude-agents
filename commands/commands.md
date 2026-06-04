@@ -121,6 +121,23 @@ Print the following information directly to the user (do NOT spawn any agents):
 └──────────────────────────────────────┘
 
 ┌──────────────────────────────────────┐
+│  UTILITIES                          │
+├──────────────────────────────────────┤
+│                                      │
+│  Command: /port                      │
+│  Purpose: Local dev port registry,   │
+│           collision check, clean URLs│
+│  Backed by: portwarden skill         │
+│  Usage:                              │
+│    /port              - List ports   │
+│    /port free         - Next free    │
+│    /port register <app> <port>       │
+│    /port check <port>                │
+│    /port caddy        - Clean URLs   │
+│                                      │
+└──────────────────────────────────────┘
+
+┌──────────────────────────────────────┐
 │  MODEL USAGE                         │
 ├──────────────────────────────────────┤
 │                                      │
@@ -138,7 +155,7 @@ Print the following information directly to the user (do NOT spawn any agents):
 │                 /explore, /git       │
 │                                      │
 │  none   (-)   - Direct commands      │
-│                 /release             │
+│                 /release, /port      │
 │                                      │
 └──────────────────────────────────────┘
 

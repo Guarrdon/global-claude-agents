@@ -48,7 +48,7 @@ BACKUP_PATH="$BACKUP_DIR/backup_$TIMESTAMP"
 echo -e "\n${BLUE}Creating backup...${NC}"
 mkdir -p "$BACKUP_PATH"
 
-BACKUP_ITEMS=("CLAUDE.md" "CLAUDE.agents.md" "settings.json" "statusline.sh" "agents" "agents-bk" "commands")
+BACKUP_ITEMS=("CLAUDE.md" "CLAUDE.agents.md" "settings.json" "statusline.sh" "agents" "agents-bk" "commands" "skills")
 BACKED_UP=0
 for item in "${BACKUP_ITEMS[@]}"; do
     [ -e "$TARGET_DIR/$item" ] && cp -r "$TARGET_DIR/$item" "$BACKUP_PATH/" && BACKED_UP=$((BACKED_UP + 1))
@@ -139,6 +139,25 @@ if [ -d "$SCRIPT_DIR/commands" ]; then
     fi
 fi
 
+# Skills directory
+echo -e "\n${BLUE}Skills:${NC}"
+if [ -d "$SCRIPT_DIR/skills" ]; then
+    if [ -d "$TARGET_DIR/skills" ]; then
+        echo -e "  ${YELLOW}?${NC} skills/ exists. [m]erge, [r]eplace, [s]kip"
+        read -p "    > " SA
+        case "$SA" in
+            m|M) for sd in "$SCRIPT_DIR/skills/"*/; do [ -d "$sd" ] && mkdir -p "$TARGET_DIR/skills/$(basename "$sd")" && cp -r "$sd"* "$TARGET_DIR/skills/$(basename "$sd")/" 2>/dev/null; done
+                 echo -e "    ${GREEN}Merged${NC}";;
+            r|R) rm -rf "$TARGET_DIR/skills"; cp -r "$SCRIPT_DIR/skills" "$TARGET_DIR/skills"; echo -e "    ${GREEN}Replaced${NC}";;
+            *) echo -e "    ${YELLOW}Skipped${NC}";;
+        esac
+    else
+        cp -r "$SCRIPT_DIR/skills" "$TARGET_DIR/skills"; echo -e "  ${GREEN}+${NC} skills/ (installed)"
+    fi
+    # Ensure bundled skill scripts stay executable
+    find "$TARGET_DIR/skills" -name "*.py" -exec chmod +x {} \; 2>/dev/null || true
+fi
+
 # Agents archive (optional)
 if [ -d "$SCRIPT_DIR/agents-bk" ]; then
     echo -e "\n${BLUE}Agent archive (140+ agents):${NC} Install? [y/N]"
@@ -213,4 +232,10 @@ echo ""
 echo -e "${YELLOW}CLI Tools installed:${NC}"
 echo "  git-worktree-workflow - Safe parallel development with worktrees"
 echo "    Run 'git-worktree-workflow --help' for usage"
+echo ""
+echo -e "${YELLOW}Skills installed:${NC}"
+echo "  portwarden - Local dev port registry + collision checker (/port command)"
+echo "    Optional clean <app>.localhost URLs need a one-time privileged Caddy start:"
+echo "      sudo caddy start --config ~/.portwarden/Caddyfile --adapter caddyfile"
+echo "    (Requires Caddy: brew install caddy. The registry itself needs no privileges.)"
 echo -e "\n${GREEN}Happy coding with Claude!${NC}"
