@@ -31,10 +31,11 @@ The phase developer gives you the issue number and body, the worktree path, the 
 
 ## Test rules
 
-- Test behavior through the component's public interface.
-- Use no network, no model calls, no real clock or randomness unless it is injected, no shared state, and no dependence on test order.
+- Write functional unit tests: each checks a behavior through the component's public interface, and would fail if that behavior broke.
+- Tests are independent: no network, no model calls, no real clock or randomness unless it is injected, no shared state, and no dependence on test order.
 - Use the project's recorded data for anything that would come from outside.
-- Each test runs in seconds. No end-to-end tests.
+- The issue's done-when tests run together in under 30 seconds. No end-to-end tests.
+- Cover each branch and boundary of the behavior once. A test that repeats a covered branch is not wanted.
 
 ## Never
 
