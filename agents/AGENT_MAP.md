@@ -1,6 +1,6 @@
 # Agent Architecture Map - Flattened Structure
 
-This document defines the flattened agent architecture for Claude Code interactions.
+This document defines the agent architecture for Claude Code interactions. There are two setups: command-driven workflows (below) and the [Phased Build](#phased-build).
 
 ## Key Concept: Command-Driven Workflows
 
@@ -12,9 +12,39 @@ User → /command → Claude (reads command) → Spawns workers directly
 
 **Why this works:**
 - Claude (main conversation) CAN spawn multiple subagents
-- Subagents CANNOT spawn other subagents (Claude Code limitation)
+- Subagents can spawn subagents (Claude Code allows nesting), but in this setup workers do not
 - Commands inject workflow instructions into Claude's context
 - Claude follows instructions to spawn appropriate workers
+
+---
+
+## Phased Build
+
+A second setup, for building a project from a spec in phases, with work run in parallel. It has no slash command of its own. Name the role in a plain session ("spec builder, start the spec", "phase developer, continue"), or invoke the skill as `/spec-builder` or `/phase-developer`.
+
+| Role | Kind | Model | Purpose |
+|------|------|-------|---------|
+| `spec-builder` | skill (runs in your session) | session model | Writes and changes the spec with you: architecture, interfaces, decisions, security, scale, testing, deployment. Writes no code |
+| `phase-developer` | skill (runs in your session) | session model | Plans phases (milestones) and issues, triages issues and bugs, owns branches and worktrees, runs executors and verifiers in parallel, opens the phase PR. The only role that changes the plan |
+| `executor` | agent | opus | Builds one issue in its worktree to the issue's done-when checks; commits on that branch |
+| `verifier` | agent | opus | Read-only check of work it did not write: one issue (task mode) or a phase's security pass (phase mode) |
+
+The two roles are skills because they talk to you and launch subagents. A subagent cannot ask you questions.
+
+Flow:
+```
+spec branch → spec PR (you merge = spec approved)
+phase-N branch ─┬─ feat/issue-a worktree → executor → verifier → merge into phase-N
+                ├─ feat/issue-b worktree → executor → verifier → merge into phase-N   (in parallel, up to 3)
+                └─ ...
+phase-N gate (offline check, security pass, live run if planned) → phase PR (you merge) → next phase
+```
+
+Rules that differ from the command setup:
+- GitHub milestones and issues are the plan. Only the phase developer changes them.
+- One PR per phase, not per issue. Issue branches merge locally into the phase branch.
+- Workers run in parallel, not one at a time.
+- Unit tests only during a phase: offline, self-contained, seconds each.
 
 ---
 
@@ -150,7 +180,12 @@ User → /command → Claude (reads command) → Spawns workers directly
 │   ├── analyst.md
 │   ├── product-analyst.md
 │   ├── researcher.md
-│   └── refactorer.md
+│   ├── refactorer.md
+│   ├── executor.md              # Phased build
+│   └── verifier.md              # Phased build
+├── skills/
+│   ├── spec-builder/SKILL.md    # Phased build role
+│   └── phase-developer/SKILL.md # Phased build role
 └── CLAUDE.agents.md             # System instructions
 ```
 
@@ -237,6 +272,6 @@ debugger → if simple fix → code-writer
 1. **Commands are entry points** - Each workflow has a dedicated command
 2. **Claude orchestrates** - Main conversation spawns all workers
 3. **Workers execute** - Subagents do the actual work
-4. **No nesting** - Workers cannot spawn other workers
+4. **No nesting** - Workers do not spawn other workers (a choice of this setup; Claude Code allows it)
 5. **Model tiering** - Use appropriate model for task complexity
 6. **Visible progress** - All spawned agents appear as colored subprocesses

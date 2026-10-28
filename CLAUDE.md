@@ -24,6 +24,17 @@ Use these commands to trigger specialized workflows. Each spawns worker agents w
 | `/port` | Local dev port registry, collision check, clean URLs | portwarden skill (direct) |
 | `/commands` | List all commands and agents | (none - displays info) |
 
+### Phased Build
+
+A second setup for building a project from a spec in phases, with parallel work. Name the role in a plain session or invoke its skill:
+
+| Role | Invoke | Workers |
+|------|--------|---------|
+| spec builder | "spec builder, ..." or `/spec-builder` | read-only searches |
+| phase developer | "phase developer, ..." or `/phase-developer` | executor, verifier (opus, in parallel) |
+
+GitHub milestones and issues are the plan. One PR per phase; you merge it. Details: `~/.claude/agents/AGENT_MAP.md`.
+
 ### Model Usage
 
 | Model | Cost | Use For |
@@ -35,7 +46,7 @@ Use these commands to trigger specialized workflows. Each spawns worker agents w
 ### Key Rules
 
 1. **Use slash commands** to start workflows
-2. **All code changes** must go through Pull Requests (never push to main/master)
+2. **All code changes** must go through Pull Requests (never push to main/master). Command workflows open one PR per issue; the phased build opens one per phase
 3. **Check project CLAUDE.md** for project-specific rules that override these
 
 ### Skills
@@ -45,6 +56,8 @@ Skills live in `~/.claude/skills/` and are auto-invoked by description, or force
 | Skill | Command | Purpose |
 |-------|---------|---------|
 | `portwarden` | `/port` | Local dev port registry + collision checker, with optional Caddy bridge for clean `<app>.localhost` URLs |
+| `spec-builder` | `/spec-builder` | Phased build: writes the spec with you |
+| `phase-developer` | `/phase-developer` | Phased build: plans and runs phases |
 
 **portwarden** ships a single stdlib-only script (`~/.claude/skills/portwarden/portwarden.py`).
 State lives in `~/.portwarden/` (`registry.json` + generated `Caddyfile`). Subcommands:

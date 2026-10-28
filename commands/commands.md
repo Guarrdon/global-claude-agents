@@ -138,6 +138,22 @@ Print the following information directly to the user (do NOT spawn any agents):
 └──────────────────────────────────────┘
 
 ┌──────────────────────────────────────┐
+│  PHASED BUILD (skills, no command)   │
+├──────────────────────────────────────┤
+│                                      │
+│  Role: spec builder                  │
+│  Invoke: name it, or /spec-builder   │
+│  Purpose: Write the spec with you    │
+│  ──────────────────────────────────  │
+│  Role: phase developer               │
+│  Invoke: name it, or /phase-developer│
+│  Purpose: Plan and run phases        │
+│  Workers: executor, verifier (opus,  │
+│           in parallel)               │
+│                                      │
+└──────────────────────────────────────┘
+
+┌──────────────────────────────────────┐
 │  MODEL USAGE                         │
 ├──────────────────────────────────────┤
 │                                      │

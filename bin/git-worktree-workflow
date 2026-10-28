@@ -6,7 +6,7 @@
 #
 # Commands:
 #   validate  - Check current git context (main repo vs worktree, branch status)
-#   start     - Create a worktree for a feature branch
+#   start     - Create a worktree for a feature branch (from main, or from a given base branch)
 #   main      - Show how to return to main repo
 #   cleanup   - Remove worktrees for merged branches
 #   list      - List all worktrees
@@ -14,6 +14,7 @@
 # Usage:
 #   git-worktree-workflow validate
 #   git-worktree-workflow start feat/issue-123-description
+#   git-worktree-workflow start feat/issue-124-description phase-1-setup
 #   git-worktree-workflow cleanup
 #
 # Environment:
@@ -124,15 +125,17 @@ cmd_validate() {
 
 cmd_start() {
     local branch_name="$1"
+    local base_branch="$2"
 
     if [[ -z "$branch_name" ]]; then
         echo -e "${RED}Error: Branch name required${NC}"
         echo ""
-        echo "Usage: git-worktree-workflow start <branch-name>"
+        echo "Usage: git-worktree-workflow start <branch-name> [base-branch]"
         echo ""
         echo "Examples:"
         echo "  git-worktree-workflow start feat/issue-123-add-login"
         echo "  git-worktree-workflow start fix/issue-456-null-check"
+        echo "  git-worktree-workflow start feat/issue-457-parser phase-1-setup"
         return 1
     fi
 
@@ -188,8 +191,13 @@ cmd_start() {
         echo "Using existing remote branch: $branch_name"
         git worktree add "$worktree_dir" "$branch_name"
     else
-        echo "Creating new branch: $branch_name (from $main_branch)"
-        git worktree add -b "$branch_name" "$worktree_dir" "$main_branch"
+        local base="${base_branch:-$main_branch}"
+        if ! git show-ref --verify --quiet "refs/heads/$base"; then
+            echo -e "${RED}Error: Base branch not found: $base${NC}"
+            return 1
+        fi
+        echo "Creating new branch: $branch_name (from $base)"
+        git worktree add -b "$branch_name" "$worktree_dir" "$base"
     fi
 
     echo ""
@@ -296,7 +304,7 @@ case "${1:-}" in
         cmd_validate
         ;;
     start|s)
-        cmd_start "$2"
+        cmd_start "$2" "$3"
         ;;
     main|m)
         cmd_main
@@ -314,7 +322,7 @@ case "${1:-}" in
         echo ""
         echo "Commands:"
         echo "  validate, v       Check current git context"
-        echo "  start, s <branch> Create worktree for feature branch"
+        echo "  start, s <branch> [base]  Create worktree for a branch (base defaults to main)"
         echo "  main, m           Show how to return to main repo"
         echo "  cleanup, c        Remove worktrees for merged branches"
         echo "  list, l, ls       List all worktrees"
@@ -322,6 +330,7 @@ case "${1:-}" in
         echo "Examples:"
         echo "  git-worktree-workflow validate"
         echo "  git-worktree-workflow start feat/issue-123-fix-bug"
+        echo "  git-worktree-workflow start feat/issue-124-parser phase-1-setup"
         echo "  git-worktree-workflow cleanup"
         echo ""
         echo "Environment:"
