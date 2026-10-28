@@ -13,7 +13,8 @@ User → /command → Claude reads command → Spawns workers via Task tool
 - Slash commands inject workflow instructions into Claude's context
 - Claude orchestrates and spawns appropriate workers
 - Workers appear as **visible colored subprocesses**
-- Workers cannot spawn other workers (Claude Code limitation)
+- Workers do not spawn other workers (a choice of this setup; Claude Code allows nesting)
+- The phased build (spec-builder, phase-developer skills; executor, verifier agents) is a separate setup with its own rules: see `~/.claude/agents/AGENT_MAP.md`
 
 ---
 
@@ -301,7 +302,7 @@ git checkout -b <prefix>/issue-<number>-<slug>
 4. **Use correct models** - opus for review/debug, haiku for explore/git, sonnet for rest
 5. **Read WORKER_CONTEXT.md first** (if exists), then project CLAUDE.md
 6. **Use PRs** - never push directly to main/master
-7. **Sequential spawning** - wait for each worker to complete before spawning next
+7. **Sequential spawning** - wait for each worker to complete before spawning next (command workflows only; the phased build runs workers in parallel)
 
 ---
 
