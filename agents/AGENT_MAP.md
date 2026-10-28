@@ -27,7 +27,7 @@ A second setup, for building a project from a spec in phases, with work run in p
 | `spec-builder` | skill (runs in your session) | session model | Writes and changes the spec with you: architecture, interfaces, decisions, security, scale, testing, deployment. Writes no code |
 | `phase-developer` | skill (runs in your session) | session model | Plans phases (milestones) and issues, triages issues and bugs, owns branches and worktrees, runs executors and verifiers in parallel, opens the phase PR. The only role that changes the plan |
 | `executor` | agent | opus | Builds one issue in its worktree to the issue's done-when checks; commits on that branch |
-| `verifier` | agent | opus | Read-only check of work it did not write: one issue (task mode) or a phase's security pass (phase mode) |
+| `verifier` | agent | opus | Read-only. Answers one question about work it did not write, for an issue or a phase: did it meet the expectation? Yes or no, with the explanation. Builds no tests; runs only functional unit tests, under 30 s |
 
 The two roles are skills because they talk to you and launch subagents. A subagent cannot ask you questions.
 
@@ -37,7 +37,7 @@ spec branch → spec PR (you merge = spec approved)
 phase-N branch ─┬─ feat/issue-a worktree → executor → verifier → merge into phase-N
                 ├─ feat/issue-b worktree → executor → verifier → merge into phase-N   (in parallel, up to 3)
                 └─ ...
-phase-N gate (offline check, security pass, live run if planned) → phase PR (you merge) → next phase
+phase-N gate (offline check, verifier on the phase, live run if planned) → phase PR (you merge) → next phase
 ```
 
 Rules that differ from the command setup:

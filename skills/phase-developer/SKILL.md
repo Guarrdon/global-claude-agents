@@ -26,7 +26,7 @@ If the labels `task`, `bug`, `spec`, `in-progress`, `verified` do not exist, cre
 ## The plan
 
 - **Phase** = a milestone titled `Phase N: <goal>`. Its description states the goal, the gate check (an offline command), whether the gate needs a live run, and the phase branch name. A `Backlog` milestone holds work not yet scheduled.
-- **The roadmap** is `docs/plan.md`, written when the spec is approved, before the first phase starts. Per phase: the goal and gate, then its issues in outline, one line each: title, spec sections, rough owned files, dependencies, verification depth. Each phase also lists its waves, the groups of issues that can run at the same time. It is the guide every phase follows. When a phase starts, its outline lines become full issues, with the interface pass done then against the code earlier phases built. Edit the roadmap whenever the plan changes (a spec change, an owner decision, a finding), commit it with the phase's work, and log the change. Milestones and filed issues stay the source of truth for the current phase; the roadmap holds the rest.
+- **The roadmap** is `docs/plan.md`, written when the spec is approved, before the first phase starts. Per phase: the goal and gate, then its issues in outline, one line each: title, spec sections, rough owned files, dependencies. Each phase also lists its waves, the groups of issues that can run at the same time. It is the guide every phase follows. When a phase starts, its outline lines become full issues, with the interface pass done then against the code earlier phases built. Edit the roadmap whenever the plan changes (a spec change, an owner decision, a finding), commit it with the phase's work, and log the change. Milestones and filed issues stay the source of truth for the current phase; the roadmap holds the rest.
 - **The first phase** builds what lets later issues run in parallel: the project skeleton, the interfaces from `docs/spec/02-interfaces.md` as code, the recorded test data, and the test command.
 - **Issue** = one unit of work, labeled `task` or `bug`. Its body:
 
@@ -35,14 +35,14 @@ If the labels `task`, `bug`, `spec`, `in-progress`, `verified` do not exist, cre
 **Spec:** <docs/spec sections it implements>
 **Owned files:** <files it creates or changes, tests included>
 **Depends on:** #<n>, ... (or none)
-**Done when:** <named unit tests or commands; each runs offline in seconds>
+**Done when:** <named functional unit tests or commands; offline, independent, together under 30 seconds>
 **Untrusted inputs:** <inputs this code handles that come from outside, or none>
 **Out of scope:** <what it must not do>
 ```
 
 Do not file an issue unless:
 - one executor can finish it in one session;
-- every done-when check runs offline, with no network, no model calls, and no shared state (the test rules are in the `executor` agent);
+- every done-when check runs offline, with no network, no model calls, and no shared state, and the checks together run in under 30 seconds (the test rules are in the `executor` agent);
 - no other issue in the same phase that can run at the same time owns any of the same files. Give shared files such as dependency manifests to one issue, or to the first phase;
 - you have done the interface pass for it: every function it calls in another module, and every function another issue will call in it, is written in the body with its exact signature, and each one is checked against the code or against the issue that creates it. Inputs the code needs but the caller does not have (a repo handle, a config, a URL) are the usual gap; settle them here, not mid-build.
 - you have searched the whole repo, `tests/` included, for every construction of a dataclass the issue changes and every call of a function whose signature it changes, and listed each file found as owned "for that change only". A missing test file is the most common reason an executor stops.
@@ -69,15 +69,12 @@ You are the only role that changes milestones or issues. Executors and verifiers
    - launch an `executor` in the background with the issue number, the full issue body, the worktree path, the spec files to read, the test command, the shared test environments, and its report file path. Rules that every executor follows live in the agent file; do not repeat them in the brief.
    Launch every ready executor in the same message.
    - **One open message per worker.** Do not send a correction while a worker is working toward its report: answer the question it asked, then wait for its report before sending anything else. A worker that needs a decision stops with `Status: blocked`.
-3. **Verify as each finishes.** Do not wait for the others. For a `full` issue, launch a `verifier` in task mode on that worktree, with the issue body, the base branch (the phase branch), the spec files, the executor's report, the shared test environments, its report file path, and the depth:
-   - `full` for code that handles untrusted input, secrets, output to an outside system, money (budgets, the ledger), or job reuse. Mutation testing runs only here, and a surviving mutation blocks only in those areas;
-   - `light` for everything else, done by the phase developer with no verifier: read the diff against the issue, run the done-when tests, and run the full suite once at merge. No mutation hunting. Only a real defect goes back to the executor.
+3. **Verify as each finishes.** Do not wait for the others. Launch a `verifier` on that worktree with the issue body, the base branch (the phase branch), the executor's report, the test command, and its report file path. It answers one question: did the work meet the issue's expectation (its goal and done-when checks)? Yes or no, with the explanation needed to act on it. It builds no tests and runs only the issue's functional unit tests, under 30 seconds.
    - **One message each way.** An executor asks only by ending its turn with `Status: blocked`; answer with one message. Send nothing else to a working executor: any message mid-task produces an extra report. An idle notification that repeats a question already answered is ignored.
-   - **One verifier run per issue.** On fail, send the blocking findings back to the same executor (SendMessage keeps its context). When the fix returns, read its diff yourself and run the named failing cases or mutations; merge if they now pass. Launch a second verifier only when the fix rewrote security-relevant code beyond the findings.
+   - **One verifier run per issue.** On "no", send the verifier's explanation to the same executor (SendMessage keeps its context). When the fix returns, read its diff yourself and run the done-when tests; merge if they pass.
    - **Still failing after two fix rounds:** stop and re-plan, or ask the owner.
-   - **Non-blocking findings:** do not send them back. Log them at merge; file an issue only for one worth doing. Otherwise drop it and give the reason.
-   - **Tests:** ask executors for coverage of every branch and boundary of the behaviour, never a count; a repeat that adds no new branch is not wanted.
-4. **Merge on pass.** In the phase worktree:
+   - **Tests:** ask executors for functional unit tests covering each branch and boundary of the behaviour once, never a count.
+4. **Merge on yes.** In the phase worktree:
    - run `git merge --no-ff feat/issue-<n>-<slug>` and then the full unit test suite once, on the one local Python (CI runs every supported one on push; confirm the CI run before the gate);
    - if the merge or a test fails, abort the merge and send the problem to the executor;
    - push the phase branch;
@@ -87,7 +84,7 @@ You are the only role that changes milestones or issues. Executors and verifiers
    - **Early live check:** if the gate needs a live run, ask the owner as soon as the phase's end-to-end path is merged whether to run its smallest live case. It shows prompt or wiring problems while issues are still open, before the full gate run.
 5. **Gate.** Do this when every issue in the milestone is verified:
    - run the milestone's gate check in the phase worktree;
-   - launch a `verifier` in phase mode on `main...phase-N-<slug>` for security and for consistency across the phase's issues;
+   - launch a `verifier` on `main...phase-N-<slug>` with the milestone's goal and gate: did the phase meet its expectation? On "no", re-plan the gap as issues;
    - if the milestone needs a live run, ask the owner first, because it costs money, then run it and record the results;
    - log the gate, push, and open a PR from the phase branch to `main`. The PR body states what the phase delivers and the gate results, then has one `Closes #<n>` line per issue;
    - give the owner the PR link. **The owner merges it. Never merge it yourself, and never push to `main`.**
@@ -101,7 +98,7 @@ You are the only role that changes milestones or issues. Executors and verifiers
 
 ## Subagents
 
-- `executor` builds one issue in its worktree, and `verifier` checks one. Launch them by agent type. Choose how to run each yourself: in the background in parallel for independent issues, and in the foreground when you need the result before you can continue.
+- `executor` builds one issue in its worktree, and `verifier` answers whether it met the expectation. Launch them by agent type. Choose how to run each yourself: in the background in parallel for independent issues, and in the foreground when you need the result before you can continue.
 - Never put two executors in one worktree. Never put an executor in the main checkout.
 - Workers never touch GitHub, `main`, another worktree, or the remote. Only you push, and only phase branches.
 - Use read-only subagents (Explore) for searches, in parallel when they are independent.
