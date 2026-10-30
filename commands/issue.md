@@ -15,7 +15,7 @@ $ARGUMENTS
 ```
 0. VALIDATE  -> Validate git worktree context (ALWAYS FIRST)
 1. SETUP     -> Detect project config, select/validate issue
-2. TRACK     -> Set issue to "In Progress" (best effort, non-blocking)
+2. TRACK     -> Label the issue in-progress; set "In Progress" on the board (best effort, non-blocking)
 3. DISCOVERY -> Explore codebase for context
 4. WORKTREE  -> Create isolated worktree for issue branch
 5. IMPLEMENT -> Diagnose and fix the issue
@@ -197,6 +197,12 @@ gh issue view <NUMBER> --json number,title,body,labels
 ```
 
 ## Phase 3: Set "In Progress" on Project Board (Best Effort)
+
+First label the issue (the status labels in `~/.claude/CLAUDE.md`; create them if the repository lacks them):
+
+```bash
+gh issue edit <NUMBER> --add-label in-progress
+```
 
 **Board tracking is best-effort - attempt to update but continue if it fails.**
 
@@ -542,7 +548,11 @@ EOF
 
 ## Phase 7: Update Board to "In Review"
 
-After PR is created, update the board status to "In Review":
+After PR is created, swap the issue's label, then update the board status to "In Review":
+
+```bash
+gh issue edit <NUMBER> --remove-label in-progress --add-label in-review
+```
 
 ```bash
 # Configuration from CLAUDE.md (substitute actual values)

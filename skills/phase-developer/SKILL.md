@@ -19,9 +19,9 @@ Read, then tell the owner where things stand and what you will do next:
 1. The last entries of `log/activity.md`, and `docs/plan.md` (the roadmap; write it first if it is missing).
 2. Open milestones and their issues: `gh api repos/{owner}/{repo}/milestones`, `gh issue list --milestone "<title>"`.
 3. Issues with no milestone (`gh issue list --search "no:milestone"`). Triage them (see Plan changes).
-4. Issues labeled `in-progress` or `verified`, open worktrees (`git worktree list`), and open PRs (`gh pr list`).
+4. Issues labeled `in-progress`, `in-review` or `verified`, open worktrees (`git worktree list`), and open PRs (`gh pr list`).
 
-If the labels `task`, `bug`, `spec`, `in-progress`, `verified` do not exist, create them.
+If the labels `task`, `bug`, `spec`, `in-progress`, `in-review`, `verified` do not exist, create them (the status labels with the colors in `~/.claude/CLAUDE.md`).
 
 ## The plan
 
@@ -69,16 +69,16 @@ You are the only role that changes milestones or issues. Executors and verifiers
    - launch an `executor` in the background with the issue number, the full issue body, the worktree path, the spec files to read, the test command, the shared test environments, and its report file path. Rules that every executor follows live in the agent file; do not repeat them in the brief.
    Launch every ready executor in the same message.
    - **One open message per worker.** Do not send a correction while a worker is working toward its report: answer the question it asked, then wait for its report before sending anything else. A worker that needs a decision stops with `Status: blocked`.
-3. **Verify as each finishes.** Do not wait for the others. Launch a `verifier` on that worktree with the issue body, the base branch (the phase branch), the executor's report, the test command, and its report file path. It answers one question: did the work meet the issue's expectation (its goal and done-when checks)? Yes or no, with the explanation needed to act on it. It builds no tests and runs only the issue's functional unit tests, under 30 seconds.
+3. **Verify as each finishes.** Do not wait for the others. Run `gh issue edit <n> --remove-label in-progress --add-label in-review`, then launch a `verifier` on that worktree with the issue body, the base branch (the phase branch), the executor's report, the test command, and its report file path. It answers one question: did the work meet the issue's expectation (its goal and done-when checks)? Yes or no, with the explanation needed to act on it. It builds no tests and runs only the issue's functional unit tests, under 30 seconds.
    - **One message each way.** An executor asks only by ending its turn with `Status: blocked`; answer with one message. Send nothing else to a working executor: any message mid-task produces an extra report. An idle notification that repeats a question already answered is ignored.
-   - **One verifier run per issue.** On "no", send the verifier's explanation to the same executor (SendMessage keeps its context). When the fix returns, read its diff yourself and run the done-when tests; merge if they pass.
+   - **One verifier run per issue.** On "no", run `gh issue edit <n> --remove-label in-review --add-label in-progress` and send the verifier's explanation to the same executor (SendMessage keeps its context). When the fix returns, read its diff yourself and run the done-when tests; merge if they pass.
    - **Still failing after two fix rounds:** stop and re-plan, or ask the owner.
    - **Tests:** ask executors for functional unit tests covering each branch and boundary of the behaviour once, never a count.
 4. **Merge on yes.** In the phase worktree:
    - run `git merge --no-ff feat/issue-<n>-<slug>` and then the full unit test suite once, on the one local Python (CI runs every supported one on push; confirm the CI run before the gate);
    - if the merge or a test fails, abort the merge and send the problem to the executor;
    - push the phase branch;
-   - run `gh issue edit <n> --remove-label in-progress --add-label verified`;
+   - run `gh issue edit <n> --remove-label in-progress --remove-label in-review --add-label verified`;
    - remove the issue's worktree and branch.
    Then dispatch any issues that just became ready.
    - **Early live check:** if the gate needs a live run, ask the owner as soon as the phase's end-to-end path is merged whether to run its smallest live case. It shows prompt or wiring problems while issues are still open, before the full gate run.
