@@ -47,6 +47,16 @@ Do not file an issue unless:
 - you have done the interface pass for it: every function it calls in another module, and every function another issue will call in it, is written in the body with its exact signature, and each one is checked against the code or against the issue that creates it. Inputs the code needs but the caller does not have (a repo handle, a config, a URL) are the usual gap; settle them here, not mid-build.
 - you have searched the whole repo, `tests/` included, for every construction of a dataclass the issue changes and every call of a function whose signature it changes, and listed each file found as owned "for that change only". A missing test file is the most common reason an executor stops.
 
+**GitHub dependencies.** Every `Depends on:` entry is also set as a GitHub issue dependency, so the blocked-by links (which boards and work maps read) match the body. The body line alone is not enough. Set each link when you file the issue, once its blockers are filed, then confirm it:
+
+```sh
+ID=$(gh api repos/{owner}/{repo}/issues/<blocker> --jq .id)
+gh api -X POST repos/{owner}/{repo}/issues/<blocked>/dependencies/blocked_by -F issue_id=$ID
+gh api repos/{owner}/{repo}/issues/<blocked>/dependencies/blocked_by --jq '[.[].number]'
+```
+
+Link only real dependencies, where one issue must be merged before the other can start; `none` is a valid answer. Check the open issues outside the phase too (bugs, backlog) for ones the new issue really waits on.
+
 **Bugs** follow the same process. Label them `bug`, give the steps that reproduce the bug, and make the first done-when check a unit test that fails before the fix and passes after. Put a bug in the current phase if it blocks the gate. Otherwise put it in the next phase or the backlog.
 
 ## Plan changes
@@ -55,15 +65,17 @@ You are the only role that changes milestones or issues. Executors and verifiers
 - **Triage:** put each issue with no milestone, including ones the owner files, into the current phase, the next phase, or the backlog. Close it with a reason if it will not be done.
 - **Spec gaps:** switch to the spec-builder role (or launch it as a subagent) for the change, then re-plan the affected issues.
 - Before you change a phase's goal or gate, or add or remove a phase, ask the owner. Make other changes yourself.
+- **Dependencies follow the plan:** whenever a change alters the order of work (a new issue, triage, a re-plan, an issue split or closed), update the affected `Depends on:` lines and their GitHub links together. Remove a link that no longer holds with `gh api -X DELETE repos/{owner}/{repo}/issues/<blocked>/dependencies/blocked_by/<blocker id>`.
 - Tell the owner each change in one line, and log it.
 
 ## Running a phase
 
 1. **Phase branch.** From the main checkout, run `git-worktree-workflow start phase-N-<slug>` and push the branch. Phase work, log entries, and spec changes made during the phase are committed in this worktree.
    - **Shared test environments:** build them once for the phase, beside the worktrees, in `.venvs/<phase>/`. In a Python project, make one virtualenv for the newest supported Python with the pinned dependencies and test tools installed and the package itself not installed; tests then run with `PYTHONPATH=src`. Executors, verifiers, and merges test on that one Python only; CI runs every supported Python on each push, and its result is checked before the phase PR. Rebuild when the phase changes the dependencies. Workers use these and build none of their own.
-   - **One machine, many workers:** at most 3 workers (executors and verifiers together) run at once. Give workers a full-suite command with a fixed worker count (`-n 4` with pytest-xdist), never one per core (`-n auto`), and never ask for repeated suite runs, timing runs, or stress loops while others run; timings are measured by the phase developer on a quiet machine. Check the load (`uptime`) when runs slow down.
+   - **One machine, many workers:** at most N workers (executors and verifiers together) run at once, where N depends on the machine: **5** on the Linux workstation (16 cores, 61 GB, NVIDIA GPU), **3** on the MacBook Air. Check with `uname -s` / `nproc` if unsure. Give workers a full-suite command with a fixed worker count (`-n 4` with pytest-xdist), never one per core (`-n auto`), and never ask for repeated suite runs, timing runs, or stress loops while others run; timings are measured by the phase developer on a quiet machine. Check the load (`uptime`) when runs slow down.
+   - **Dependency check:** for each of the phase's issues, compare its GitHub blocked-by links with its `Depends on:` line, and fix any mismatch before dispatching.
    - **Reports folder:** make one in the session scratchpad. Each worker gets the path of its own report file, `<issue>-<agent>.md`.
-2. **Dispatch.** Find the ready issues: those whose dependencies are already merged into the phase branch. Run at most 3 workers at once, executors and verifiers counted together. For each issue:
+2. **Dispatch.** Find the ready issues: those whose dependencies are already merged into the phase branch. Run at most N workers at once (see above), executors and verifiers counted together. For each issue:
    - `git-worktree-workflow start feat/issue-<n>-<slug> phase-N-<slug>` (use `fix/` for bugs);
    - `gh issue edit <n> --add-label in-progress`;
    - launch an `executor` in the background with the issue number, the full issue body, the worktree path, the spec files to read, the test command, the shared test environments, and its report file path. Rules that every executor follows live in the agent file; do not repeat them in the brief.
