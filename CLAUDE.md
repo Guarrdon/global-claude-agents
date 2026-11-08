@@ -48,6 +48,7 @@ GitHub milestones and issues are the plan. One PR per phase; you merge it. Detai
 1. **Use slash commands** to start workflows
 2. **All code changes** must go through Pull Requests (never push to main/master). Command workflows open one PR per issue; the phased build opens one per phase
 3. **Check project CLAUDE.md** for project-specific rules that override these
+4. **Set GitHub issue dependencies** whenever you create an issue, in any workflow: look at the open issues it relates to, and set a blocked-by link for each one that must finish before it can start (`gh api -X POST repos/<owner>/<repo>/issues/<blocked>/dependencies/blocked_by -F issue_id=<blocker's id>`, where the id comes from `gh api repos/<owner>/<repo>/issues/<blocker> --jq .id`). When you create several related issues, link them to each other. When a new issue changes the order of existing work, update the affected links. No dependencies is a valid answer; do not invent links. Work maps and boards read these links, not text in the issue body
 
 ### Skills
 
