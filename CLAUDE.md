@@ -31,7 +31,7 @@ A second setup for building a project from a spec in phases, with parallel work.
 | Role | Invoke | Workers |
 |------|--------|---------|
 | spec builder | "spec builder, ..." or `/spec-builder` | read-only searches |
-| phase developer | "phase developer, ..." or `/phase-developer` | executor, verifier (opus, in parallel) |
+| phase developer | "phase developer, ..." or `/phase-developer` | executor, verifier (opus, in parallel); in game projects also game-designer (fable), art-verifier (opus) |
 
 GitHub milestones and issues are the plan. One PR per phase; you merge it. Details: `~/.claude/agents/AGENT_MAP.md`.
 
@@ -39,6 +39,7 @@ GitHub milestones and issues are the plan. One PR per phase; you merge it. Detai
 
 | Model | Cost | Use For |
 |-------|------|---------|
+| **fable** | top tier | Game design: game-designer (game projects) |
 | **opus** | $$$ | Deep analysis: /review, /debug, /audit (UX only) |
 | **sonnet** | $$ | Development: /dev, /test, /docs, /deploy, /infra, /issue, /analyze, /audit |
 | **haiku** | $ | Fast tasks: /explore, /git |
@@ -86,6 +87,7 @@ Never use `.local` on macOS (hijacked by mDNS/Bonjour); never edit `/etc/hosts` 
 |---------|------------|---------|
 | GitHub Project Board | `github_project` | `/issue` sets In Progress/Done |
 | Git Worktrees | `~/.local/bin/git-worktree-workflow` | `/issue`, `/git` use worktrees |
+| Game project | `## Game` block: `game_design_doc`, `arteest_manifest`, `style_pack`, `screenshot_cmd`, `lhstart_id` | phase-developer and spec-builder add game-designer and art-verifier |
 
 These features are optional - workflows adapt when config is missing.
 

@@ -32,6 +32,7 @@ If the labels `task`, `bug`, `spec`, `in-progress`, `in-review`, `verified` do n
 
 ```
 **Goal:** <one sentence>
+**Worker:** executor | game-designer (design | content | art)
 **Spec:** <docs/spec sections it implements>
 **Owned files:** <files it creates or changes, tests included>
 **Depends on:** #<n>, ... (or none)
@@ -57,6 +58,12 @@ gh api repos/{owner}/{repo}/issues/<blocked>/dependencies/blocked_by --jq '[.[].
 
 Link only real dependencies, where one issue must be merged before the other can start; `none` is a valid answer. Check the open issues outside the phase too (bugs, backlog) for ones the new issue really waits on.
 
+**Game projects.** A project whose `CLAUDE.md` has a `## Game` block (see the `game-designer` agent) splits work by kind:
+- **design** and **content** issues (rules, tuning numbers, levels, words) go to the `game-designer`. Its owned files are the design doc sections and content data, never code.
+- **art** issues go to the `game-designer` in art mode: it writes the style pack and manifest entries and runs arteest. Its done-when checks are `arteest check` passing for its asset ids and an art-verifier "yes"; this is the one exception to the offline, no-model-call rule for done-when checks. Wiring the art into the game is a separate executor issue.
+- **build** issues go to the `executor` as usual. A build issue that implements a design or content issue depends on it.
+Mechanics a later build issue needs are designed in an earlier wave or phase, so the executor never guesses a number.
+
 **Bugs** follow the same process. Label them `bug`, give the steps that reproduce the bug, and make the first done-when check a unit test that fails before the fix and passes after. Put a bug in the current phase if it blocks the gate. Otherwise put it in the next phase or the backlog.
 
 ## Plan changes
@@ -78,11 +85,12 @@ You are the only role that changes milestones or issues. Executors and verifiers
 2. **Dispatch.** Find the ready issues: those whose dependencies are already merged into the phase branch. Run at most N workers at once (see above), executors and verifiers counted together. For each issue:
    - `git-worktree-workflow start feat/issue-<n>-<slug> phase-N-<slug>` (use `fix/` for bugs);
    - `gh issue edit <n> --add-label in-progress`;
-   - launch an `executor` in the background with the issue number, the full issue body, the worktree path, the spec files to read, the test command, the shared test environments, and its report file path. Rules that every executor follows live in the agent file; do not repeat them in the brief.
-   Launch every ready executor in the same message.
+   - launch the issue's **Worker** (`executor` unless it says `game-designer`, then with its mode) in the background with the issue number, the full issue body, the worktree path, the spec files to read, the test command, the shared test environments, and its report file path. Rules that every executor follows live in the agent file; do not repeat them in the brief.
+   Launch every ready worker in the same message. Only one art issue generates at a time: arteest uses the GPU.
    - **One open message per worker.** Do not send a correction while a worker is working toward its report: answer the question it asked, then wait for its report before sending anything else. A worker that needs a decision stops with `Status: blocked`.
 3. **Verify as each finishes.** Do not wait for the others. Run `gh issue edit <n> --remove-label in-progress --add-label in-review`, then launch a `verifier` on that worktree with the issue body, the base branch (the phase branch), the executor's report, the test command, and its report file path. It answers one question: did the work meet the issue's expectation (its goal and done-when checks)? Yes or no, with the explanation needed to act on it. It builds no tests and runs only the issue's functional unit tests, under 30 seconds.
    - **One message each way.** An executor asks only by ending its turn with `Status: blocked`; answer with one message. Send nothing else to a working executor: any message mid-task produces an extra report. An idle notification that repeats a question already answered is ignored.
+   - **Art issues** get an `art-verifier` instead, with the asset ids, facts and style from the game-designer's report. On "no", send its answer to the same game-designer, as for a verifier "no". Design and content issues get the usual `verifier`.
    - **One verifier run per issue.** On "no", run `gh issue edit <n> --remove-label in-review --add-label in-progress` and send the verifier's explanation to the same executor (SendMessage keeps its context). When the fix returns, read its diff yourself and run the done-when tests; merge if they pass.
    - **Still failing after two fix rounds:** stop and re-plan, or ask the owner.
    - **Tests:** ask executors for functional unit tests covering each branch and boundary of the behaviour once, never a count.
@@ -97,6 +105,7 @@ You are the only role that changes milestones or issues. Executors and verifiers
 5. **Gate.** Do this when every issue in the milestone is verified:
    - run the milestone's gate check in the phase worktree;
    - launch a `verifier` on `main...phase-N-<slug>` with the milestone's goal and gate: did the phase meet its expectation? On "no", re-plan the gap as issues;
+   - **game projects:** at the same time, launch a `game-designer` in review mode on the phase branch, with the phase goal and the `screenshot_cmd` if the project has one. File each finding as an issue (`task`, or `bug` when the build contradicts the design doc), triaged into the next phase or the backlog, and list them in the PR body. Findings do not block the phase;
    - if the milestone needs a live run, ask the owner first, because it costs money, then run it and record the results;
    - log the gate, push, and open a PR from the phase branch to `main`. The PR body states what the phase delivers and the gate results, then has one `Closes #<n>` line per issue;
    - give the owner the PR link. **The owner merges it. Never merge it yourself, and never push to `main`.**
@@ -110,8 +119,8 @@ You are the only role that changes milestones or issues. Executors and verifiers
 
 ## Subagents
 
-- `executor` builds one issue in its worktree, and `verifier` answers whether it met the expectation. Launch them by agent type. Choose how to run each yourself: in the background in parallel for independent issues, and in the foreground when you need the result before you can continue.
-- Never put two executors in one worktree. Never put an executor in the main checkout.
+- `executor` builds one issue in its worktree, and `verifier` answers whether it met the expectation. In game projects, `game-designer` (Fable) does design, content and art issues and the gate's experience review, and `art-verifier` checks art issues. Launch them by agent type. Choose how to run each yourself: in the background in parallel for independent issues, and in the foreground when you need the result before you can continue.
+- Never put two workers in one worktree. Never put an executor in the main checkout.
 - Workers never touch GitHub, `main`, another worktree, or the remote. Only you push, and only phase branches.
 - Use read-only subagents (Explore) for searches, in parallel when they are independent.
 - When you run as a subagent you cannot ask the owner. Return your questions instead.

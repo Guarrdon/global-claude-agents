@@ -40,6 +40,33 @@ phase-N branch ─┬─ feat/issue-a worktree → executor → verifier → mer
 phase-N gate (offline check, verifier on the phase, live run if planned) → phase PR (you merge) → next phase
 ```
 
+### Game projects
+
+A game project has a `## Game` block in its `CLAUDE.md`. It adds two workers to the phased build (also usable from command workflows):
+
+| Worker | Model | Purpose |
+|--------|-------|---------|
+| `game-designer` | **fable** | Owns gameplay, experience and consistency: the design doc (pillars, decisions, mechanics, tuning numbers), content data, words, and art direction. Writes the arteest style pack and manifest entries, generates the art, and fixes it. At each gate it reviews the build against the design. Writes no code |
+| `art-verifier` | opus | Read-only. Looks at generated art: required facts shown, nothing extra, in style, usable at game size. Yes or no per asset, with the cheapest fix |
+
+```
+## Game                                          (project CLAUDE.md)
+- game_design_doc: DESIGN.md
+- arteest_manifest: arteest.json
+- style_pack: <pack id>
+- screenshot_cmd: node scripts/shot.mjs <dir>    (optional)
+- lhstart_id: <id>                               (optional)
+```
+
+Each issue names its worker. Flow:
+```
+design / content issue → game-designer → verifier      → merge
+art issue              → game-designer → art-verifier  → merge   (one at a time: GPU)
+build issue            → executor      → verifier      → merge   (depends on the design issue it builds)
+gate → verifier on the phase + game-designer review → findings filed as issues (do not block) → phase PR
+```
+The executor still builds everything in code, including wiring the art in. A game can keep its own specialist agents in `.claude/agents/` (Case Theory's `story-teller`); they sit beside these.
+
 Rules that differ from the command setup:
 - GitHub milestones and issues are the plan. Only the phase developer changes them.
 - One PR per phase, not per issue. Issue branches merge locally into the phase branch.
@@ -142,7 +169,8 @@ Rules that differ from the command setup:
 
 | Model | Cost | Use For | Workers |
 |-------|------|---------|---------|
-| **opus** | $$$ | Deep reasoning, complex analysis | code-reviewer, debugger |
+| **fable** | top tier | Creative design, consistency of a whole game | game-designer |
+| **opus** | $$$ | Deep reasoning, complex analysis | code-reviewer, debugger, executor, verifier, art-verifier |
 | **sonnet** | $$ | Standard tasks, implementation | Most workers |
 | **haiku** | $ | Fast, procedural tasks | explorer, git-manager |
 
@@ -182,7 +210,9 @@ Rules that differ from the command setup:
 │   ├── researcher.md
 │   ├── refactorer.md
 │   ├── executor.md              # Phased build
-│   └── verifier.md              # Phased build
+│   ├── verifier.md              # Phased build
+│   ├── game-designer.md         # Phased build, game projects (fable)
+│   └── art-verifier.md          # Phased build, game projects
 ├── skills/
 │   ├── spec-builder/SKILL.md    # Phased build role
 │   └── phase-developer/SKILL.md # Phased build role

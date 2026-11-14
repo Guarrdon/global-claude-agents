@@ -14,7 +14,7 @@ User → /command → Claude reads command → Spawns workers via Task tool
 - Claude orchestrates and spawns appropriate workers
 - Workers appear as **visible colored subprocesses**
 - Workers do not spawn other workers (a choice of this setup; Claude Code allows nesting)
-- The phased build (spec-builder, phase-developer skills; executor, verifier agents) is a separate setup with its own rules: see `~/.claude/agents/AGENT_MAP.md`
+- The phased build (spec-builder, phase-developer skills; executor, verifier agents; game-designer, art-verifier in game projects) is a separate setup with its own rules: see `~/.claude/agents/AGENT_MAP.md`
 
 ---
 
