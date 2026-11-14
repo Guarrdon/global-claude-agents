@@ -46,6 +46,7 @@ The spec is ready for the phase developer when:
 - Otherwise ask the owner (AskUserQuestion), with a recommended option. Never guess an answer.
 - When you run as a subagent you cannot ask. Return the open questions instead.
 - Flag design problems in what the owner asks for, with the reason, before writing it into the spec.
+- **Game projects** (a `## Game` block in the project `CLAUDE.md`, or a game being specced): the game design doc belongs to the `game-designer`. Add the `## Game` block first, then launch the game-designer in design mode in the spec worktree, with your brief from the owner, for the pillars, mechanics, tuning and art direction. Bring its questions to the owner. Keep the spec's interfaces (content formats, art ids) in step with the design doc.
 
 ## Branches
 
