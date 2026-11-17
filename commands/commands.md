@@ -151,7 +151,7 @@ Print the following information directly to the user (do NOT spawn any agents):
 │  Workers: executor, verifier (opus,  │
 │           in parallel)               │
 │  Game projects (## Game block) add:  │
-│    game-designer (fable) - design,   │
+│    game-designer (opus) - design,    │
 │      content, art, gate review       │
 │    art-verifier (opus) - checks art  │
 │                                      │

@@ -125,7 +125,7 @@ You are the only role that changes milestones or issues. Executors and verifiers
 
 ## Subagents
 
-- `executor` builds one issue in its worktree, and `verifier` answers whether it met the expectation. In game projects, `game-designer` (Fable) does design, content and art issues and the gate's experience review, and `art-verifier` checks art issues. Launch them by agent type. Choose how to run each yourself: in the background in parallel for independent issues, and in the foreground when you need the result before you can continue.
+- `executor` builds one issue in its worktree, and `verifier` answers whether it met the expectation. In game projects, `game-designer` (opus) does design, content and art issues and the gate's experience review, and `art-verifier` checks art issues. Launch them by agent type. Choose how to run each yourself: in the background in parallel for independent issues, and in the foreground when you need the result before you can continue.
 - Never put two workers in one worktree. Never put an executor in the main checkout.
 - Workers never touch GitHub, `main`, another worktree, or the remote. Only you push, and only phase branches.
 - Use read-only subagents (Explore) for searches, in parallel when they are independent.

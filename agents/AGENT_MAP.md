@@ -46,7 +46,7 @@ A game project has a `## Game` block in its `CLAUDE.md`. It adds two workers to 
 
 | Worker | Model | Purpose |
 |--------|-------|---------|
-| `game-designer` | **fable** | Owns gameplay, experience and consistency: the design doc (pillars, decisions, mechanics, tuning numbers), content data, words, and art direction. Writes the arteest style pack and manifest entries, generates the art, and fixes it. At each gate it reviews the build against the design. Writes no code |
+| `game-designer` | **opus** | Owns gameplay, experience and consistency: the design doc (pillars, decisions, mechanics, tuning numbers), content data, words, and art direction. Writes the arteest style pack and manifest entries, generates the art, and fixes it. At each gate it reviews the build against the design. Writes no code |
 | `art-verifier` | opus | Read-only. Looks at generated art: required facts shown, nothing extra, in style, usable at game size. Yes or no per asset, with the cheapest fix |
 
 ```
@@ -169,7 +169,7 @@ Rules that differ from the command setup:
 
 | Model | Cost | Use For | Workers |
 |-------|------|---------|---------|
-| **fable** | top tier | Creative design, consistency of a whole game | game-designer |
+| **fable** | top tier | Not used by any agent (owner, 2026-11-17: agents max at opus). One-off use only, by explicit request | — |
 | **opus** | $$$ | Deep reasoning, complex analysis | code-reviewer, debugger, executor, verifier, art-verifier |
 | **sonnet** | $$ | Standard tasks, implementation | Most workers |
 | **haiku** | $ | Fast, procedural tasks | explorer, git-manager |
@@ -211,7 +211,7 @@ Rules that differ from the command setup:
 │   ├── refactorer.md
 │   ├── executor.md              # Phased build
 │   ├── verifier.md              # Phased build
-│   ├── game-designer.md         # Phased build, game projects (fable)
+│   ├── game-designer.md         # Phased build, game projects (opus)
 │   └── art-verifier.md          # Phased build, game projects
 ├── skills/
 │   ├── spec-builder/SKILL.md    # Phased build role
